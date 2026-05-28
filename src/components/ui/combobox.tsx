@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface Props {
   name: string;
@@ -16,13 +15,13 @@ export default function Combobox({ name, defaultValue, options, placeholder }: P
     defaultValue && !options.includes(defaultValue) ? "custom" : "existing"
   );
   const [selectValue, setSelectValue] = useState(
-    defaultValue && options.includes(defaultValue) ? defaultValue : (options[0] || "")
+    defaultValue && options.includes(defaultValue) ? defaultValue : "__choose__"
   );
   const [customValue, setCustomValue] = useState(
     defaultValue && !options.includes(defaultValue) ? defaultValue : ""
   );
 
-  // Sync defaultValue changes (edit mode)
+  // Sync defaultValue on edit
   useEffect(() => {
     if (defaultValue) {
       if (options.includes(defaultValue)) {
@@ -35,28 +34,29 @@ export default function Combobox({ name, defaultValue, options, placeholder }: P
     }
   }, [defaultValue, options]);
 
-  const finalValue = mode === "existing" ? selectValue : customValue;
+  const finalValue = mode === "custom" ? customValue : selectValue;
 
   return (
     <div className="flex gap-2 items-center">
-      <Select
+      <select
+        className="h-8 rounded-lg border border-input bg-transparent px-2.5 text-sm"
         value={mode === "existing" ? selectValue : "__custom__"}
-        onValueChange={(v) => {
-          if (v === "__custom__") { setMode("custom"); }
-          else { setMode("existing"); setSelectValue(v || ""); }
+        onChange={(e) => {
+          if (e.target.value === "__custom__") {
+            setMode("custom");
+          } else {
+            setMode("existing");
+            setSelectValue(e.target.value);
+          }
         }}
       >
-        <SelectTrigger className="w-full">
-          <SelectValue placeholder={placeholder || "选择或输入"} />
-        </SelectTrigger>
-        <SelectContent>
-          {options.map((opt) => (
-            <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-          ))}
-          <SelectItem value="__custom__">+ 自定义</SelectItem>
-        </SelectContent>
-      </Select>
-      {mode === "custom" ? (
+        <option value="__choose__" disabled hidden>{placeholder || "选择"}</option>
+        {options.map((opt) => (
+          <option key={opt} value={opt}>{opt}</option>
+        ))}
+        <option value="__custom__">+ 自定义</option>
+      </select>
+      {mode === "custom" && (
         <Input
           name={name}
           value={customValue}
@@ -64,7 +64,8 @@ export default function Combobox({ name, defaultValue, options, placeholder }: P
           placeholder="输入自定义值"
           className="flex-1"
         />
-      ) : (
+      )}
+      {mode === "existing" && (
         <input type="hidden" name={name} value={finalValue} />
       )}
     </div>

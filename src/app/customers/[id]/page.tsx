@@ -48,7 +48,7 @@ export default async function CustomerDetailPage({ params, searchParams }: { par
         <CustomerForm defaultValues={customer} />
       </div>
 
-      <Tabs defaultValue="info">
+      <Tabs defaultValue="orders">
         <TabsList>
           <TabsTrigger value="info">基本信息</TabsTrigger>
           <TabsTrigger value="contacts">联系人 ({customer.contacts.length})</TabsTrigger>
