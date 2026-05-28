@@ -30,6 +30,10 @@ export async function getUsedCategories() {
   const ps = await prisma.product.findMany({ select: { category: true }, distinct: ["category"] });
   return ps.map(p => p.category).filter(Boolean) as string[];
 }
+export async function getUsedSources() {
+  const cs = await prisma.customer.findMany({ select: { source: true }, distinct: ["source"] });
+  return cs.map(c => c.source).filter(Boolean) as string[];
+}
 export async function getCustomersSimple() {
   return prisma.customer.findMany({ select: { id: true, fullName: true, type: true }, orderBy: { fullName: "asc" } });
 }
@@ -79,6 +83,12 @@ export async function createBatch(data: any) {
   });
   if (data.purchasePrice && data.supplierId) {
     await prisma.purchasePrice.create({ data: { productId: data.productId, supplierId: data.supplierId, price: Number(data.purchasePrice) } });
+  }
+  // 到货自动记录财务支出
+  if (data.status !== "ordered" && data.purchasePrice && data.purchaseQuantity) {
+    await prisma.financeRecord.create({
+      data: { type: "expense", category: "采购成本", amount: Number(data.purchasePrice) * Number(data.purchaseQuantity), description: `批次${data.batchNumber}入库`, date: new Date() },
+    });
   }
   revalidatePath(`/products/${data.productId}`);
   return batch;
@@ -141,7 +151,7 @@ export async function getOrders() {
   return prisma.order.findMany({ include: { customer: true, items: { include: { product: true } } }, orderBy: { createdAt: "desc" } });
 }
 export async function getOrder(id: string) {
-  return prisma.order.findUnique({ where: { id }, include: { customer: true, quotation: { include: { items: { include: { product: true } } } }, items: { include: { product: true, batch: true } }, afterSales: { orderBy: { createdAt: "desc" } } } });
+  return prisma.order.findUnique({ where: { id }, include: { customer: true, quotation: { include: { items: { include: { product: true } } } }, items: { include: { product: { include: { purchasePrices: true } }, batch: true } }, afterSales: { orderBy: { createdAt: "desc" } } } });
 }
 export async function createOrderFromQuotation(quotationId: string) {
   const q = await prisma.quotation.findUnique({ where: { id: quotationId }, include: { items: true } });
@@ -150,7 +160,19 @@ export async function createOrderFromQuotation(quotationId: string) {
   await prisma.quotation.update({ where: { id: quotationId }, data: { status: "converted" } });
   revalidatePath("/sales"); return order;
 }
-export async function updateOrderStatus(id: string, status: string) { await prisma.order.update({ where: { id }, data: { status } }); revalidatePath("/sales"); }
+export async function updateOrderStatus(id: string, status: string) {
+  await prisma.order.update({ where: { id }, data: { status } });
+  // 订单完成自动记录财务收入
+  if (status === "completed") {
+    const order = await prisma.order.findUnique({ where: { id }, include: { customer: true } });
+    if (order) {
+      await prisma.financeRecord.create({
+        data: { type: "income", category: "销售收入", amount: order.totalAmount, description: `${order.customer.fullName} 订单完成`, date: new Date(), orderId: id },
+      });
+    }
+  }
+  revalidatePath("/sales");
+}
 export async function updateOrder(id: string, data: any) {
   const { receivedDate, contractStartDate, contractEndDate, receivedAmount, totalAmount, receivableAmount, ...rest } = data;
   await prisma.order.update({

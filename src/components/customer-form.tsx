@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import Combobox from "@/components/ui/combobox";
-import { createCustomer, updateCustomer, deleteCustomer, getUsedIndustries } from "@/lib/actions";
+import { createCustomer, updateCustomer, deleteCustomer, getUsedIndustries, getUsedSources } from "@/lib/actions";
 
 interface Props {
   defaultValues?: any;
@@ -19,9 +19,12 @@ export default function CustomerForm({ defaultValues, onSuccess }: Props) {
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [industries, setIndustries] = useState<string[]>([]);
+  const [sources, setSources] = useState<string[]>([]);
   const router = useRouter();
 
-  useEffect(() => { if (open) getUsedIndustries().then(setIndustries); }, [open]);
+  useEffect(() => {
+    if (open) { getUsedIndustries().then(setIndustries); getUsedSources().then(setSources); }
+  }, [open]);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -84,10 +87,7 @@ export default function CustomerForm({ defaultValues, onSuccess }: Props) {
             </div>
             <div>
               <Label>来源</Label>
-              <Select name="source" defaultValue={defaultValues?.source || undefined}>
-                <SelectTrigger><SelectValue placeholder="选择来源" /></SelectTrigger>
-                <SelectContent><SelectItem value="展会">展会</SelectItem><SelectItem value="网络">网络</SelectItem><SelectItem value="介绍">介绍</SelectItem><SelectItem value="主动联系">主动联系</SelectItem></SelectContent>
-              </Select>
+              <Combobox name="source" defaultValue={defaultValues?.source} options={sources} placeholder="输入或选择来源" />
             </div>
             <div>
               <Label>状态</Label>

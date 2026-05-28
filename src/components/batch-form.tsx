@@ -39,7 +39,10 @@ export default function BatchForm({ productId, defaultValues, onSuccess }: Props
       return;
     }
     const data: Record<string, any> = { productId, supplierId: supplierId || undefined };
-    for (const [k, v] of fd.entries()) {
+    const entries = Array.from(fd.entries());
+    for (let i = 0; i < entries.length; i++) {
+      const k = entries[i][0];
+      const v = entries[i][1];
       if (v && String(v).trim()) data[k] = v;
     }
     if (data.quantity !== undefined) data.quantity = Number(data.quantity);

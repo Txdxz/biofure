@@ -69,7 +69,7 @@ export default function DashboardPage() {
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="month" tickFormatter={m => m+"月"} />
               <YAxis />
-              <Tooltip formatter={(v: number) => `¥${v.toFixed(0)}`} />
+              <Tooltip formatter={(v) => `¥${Number(v).toFixed(0)}`} />
               <Bar dataKey="revenue" name="营收" fill="#3b82f6" radius={[4,4,0,0]} />
               <Bar dataKey="profit" name="利润" fill="#10b981" radius={[4,4,0,0]} />
             </BarChart>
@@ -85,10 +85,10 @@ export default function DashboardPage() {
             {catData.length > 0 ? (
               <ResponsiveContainer width="100%" height={250}>
                 <PieChart>
-                  <Pie data={catData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label={({name, percent}) => `${name} ${(percent*100).toFixed(0)}%`}>
+                  <Pie data={catData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label={({name, percent}) => `${name} ${((percent||0)*100).toFixed(0)}%`}>
                     {catData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                   </Pie>
-                  <Tooltip formatter={(v: number) => `¥${v.toFixed(0)}`} />
+                  <Tooltip formatter={(v) => `¥${Number(v).toFixed(0)}`} />
                 </PieChart>
               </ResponsiveContainer>
             ) : <p className="text-gray-400 text-center py-12">暂无数据</p>}
