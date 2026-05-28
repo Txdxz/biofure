@@ -1,0 +1,224 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ========== 客户模块 ==========
+
+model Customer {
+  id          String   @id @default(cuid())
+  fullName    String
+  shortName   String?
+  uscc        String?   @unique
+  type        String   @default("client")
+  industry    String?
+  level       String   @default("B")
+  source      String?
+  status      String   @default("active")
+  bankAccount String?
+  address     String?
+  remark      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  contacts       Contact[]
+  purchasePrices PurchasePrice[]
+  sellPrices     SellPrice[]
+  quotations     Quotation[]
+  orders         Order[]
+  batches        Batch[]
+}
+
+model Contact {
+  id         String   @id @default(cuid())
+  customerId String
+  name       String
+  phone      String?
+  wechat     String?
+  email      String?
+  position   String?
+  isPrimary  Boolean  @default(false)
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+}
+
+// ========== 产品模块 ==========
+
+model Product {
+  id               String   @id @default(cuid())
+  name             String
+  nameEn           String?
+  category         String?
+  brand            String?
+  specification    String?
+  unit             String   @default("支")
+  storageCondition String?
+  safetyStock      Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  batches        Batch[]
+  productFiles   ProductFile[]
+  purchasePrices PurchasePrice[]
+  sellPrices     SellPrice[]
+  quotationItems QuotationItem[]
+  orderItems     OrderItem[]
+}
+
+model Batch {
+  id                  String     @id @default(cuid())
+  productId           String
+  batchNumber         String
+  productionDate      DateTime?
+  expiryDate          DateTime
+  quantity            Int        @default(0)
+  supplierId          String?
+  status              String     @default("arrived")  // ordered | arrived | depleted
+  orderDate           DateTime?                       // 下单日期
+  estimatedArrivalDate DateTime?                      // 预计到货
+  purchaseQuantity    Int?                             // 采购数量
+  product             Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  supplier            Customer?  @relation(fields: [supplierId], references: [id])
+  orderItems          OrderItem[]
+}
+
+model User {
+  id           String   @id @default(cuid())
+  username     String   @unique
+  passwordHash String
+  role         String   @default("admin")   // super_admin | admin
+  createdAt    DateTime @default(now())
+}
+
+model ProductFile {
+  id        String  @id @default(cuid())
+  productId String
+  fileType  String
+  filePath  String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+// ========== 价格模块 ==========
+
+model PurchasePrice {
+  id         String   @id @default(cuid())
+  productId  String
+  supplierId String
+  price      Float
+  currency   String   @default("CNY")
+  validFrom  DateTime @default(now())
+  validTo    DateTime?
+  isDefault  Boolean  @default(false)
+  history    String?
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  supplier   Customer @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+}
+
+model SellPrice {
+  id         String    @id @default(cuid())
+  productId  String
+  customerId String?
+  price      Float
+  validFrom  DateTime  @default(now())
+  history    String?
+  product    Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  customer   Customer? @relation(fields: [customerId], references: [id])
+}
+
+// ========== 销售模块 ==========
+
+model Quotation {
+  id          String   @id @default(cuid())
+  customerId  String
+  date        DateTime @default(now())
+  validTo     DateTime
+  status      String   @default("draft")
+  totalAmount Float    @default(0)
+  remark      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  customer    Customer @relation(fields: [customerId], references: [id])
+  items       QuotationItem[]
+  orders      Order[]
+}
+
+model QuotationItem {
+  id          String    @id @default(cuid())
+  quotationId String
+  productId   String
+  quantity    Int
+  unitPrice   Float
+  subtotal    Float
+  quotation   Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  product     Product   @relation(fields: [productId], references: [id])
+}
+
+model Order {
+  id                String     @id @default(cuid())
+  customerId        String
+  quotationId       String?
+  contractNo        String?                              // 合同编号（合并自Contract）
+  contractFilePath  String?                              // 合同附件
+  contractStartDate DateTime?
+  contractEndDate   DateTime?                            // 合同到期日期
+  date              DateTime   @default(now())
+  status            String     @default("pending")
+  totalAmount       Float      @default(0)
+  receivableAmount  Float      @default(0)
+  receivedAmount    Float      @default(0)
+  paymentMethod     String?
+  paymentTerms      String?
+  deliveryTerms     String?
+  trackingNumber    String?                              // 物流单号
+  invoiceNo         String?                              // 发票号
+  invoiceDate       DateTime?                            // 开票日期
+  invoiceStatus     String   @default("none")            // none | issued
+  receivedDate      DateTime?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+  customer          Customer   @relation(fields: [customerId], references: [id])
+  quotation         Quotation? @relation(fields: [quotationId], references: [id])
+  items             OrderItem[]
+  afterSales        AfterSale[]
+}
+
+model OrderItem {
+  id        String   @id @default(cuid())
+  orderId   String
+  productId String
+  batchId   String?
+  quantity  Int
+  unitPrice Float
+  taxRate   Float    @default(13.0)
+  subtotal  Float
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product   Product  @relation(fields: [productId], references: [id])
+  batch     Batch?   @relation(fields: [batchId], references: [id])
+}
+
+model AfterSale {
+  id          String   @id @default(cuid())
+  orderId     String
+  date        DateTime @default(now())
+  description String
+  status      String   @default("pending")
+  solution    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+model FinanceRecord {
+  id          String   @id @default(cuid())
+  date        DateTime @default(now())
+  type        String                              // income | expense
+  category    String                              // 收入/支出分类
+  amount      Float
+  description String?
+  orderId     String?                             // 关联订单（可空）
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
