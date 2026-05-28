@@ -68,7 +68,7 @@ export default function NewQuotationPage() {
       <div className="space-y-4 max-w-3xl">
         <div className="w-64">
           <Label>客户 *</Label>
-          <Select value={customerId} onValueChange={setCustomerId}>
+          <Select value={customerId} onValueChange={(v) => v && setCustomerId(v)}>
             <SelectTrigger><SelectValue placeholder="选择客户" /></SelectTrigger>
             <SelectContent>
               {clientCustomers.map((c) => (
@@ -102,7 +102,7 @@ export default function NewQuotationPage() {
               <Label className="text-xs">产品</Label>
               <Select
                 value={row.productId}
-                onValueChange={(v: string) => { updateRow(idx, "productId", v); handlePriceLookup(v, idx); }}
+                onValueChange={(v) => { if (v) { updateRow(idx, "productId", v); handlePriceLookup(v, idx); } }}
               >
                 <SelectTrigger><SelectValue placeholder="选择" /></SelectTrigger>
                 <SelectContent>

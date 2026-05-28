@@ -48,7 +48,7 @@ export default function ContractForm() {
           </div>
           <div>
             <Label>客户 *</Label>
-            <Select value={customerId} onValueChange={setCustomerId}>
+            <Select value={customerId} onValueChange={(v) => v && setCustomerId(v)}>
               <SelectTrigger><SelectValue placeholder="选择客户" /></SelectTrigger>
               <SelectContent>
                 {customers.map((c) => (

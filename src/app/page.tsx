@@ -36,7 +36,7 @@ export default function DashboardPage() {
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold">仪表盘</h2>
         <div className="flex gap-2 items-center">
-          <Select value={String(year)} onValueChange={v => setYear(Number(v))}>
+          <Select value={String(year)} onValueChange={(v) => v && setYear(Number(v))}>
             <SelectTrigger className="w-24"><SelectValue /></SelectTrigger>
             <SelectContent>
               {[2024, 2025, 2026, 2027].map(y => <SelectItem key={y} value={String(y)}>{y}年</SelectItem>)}

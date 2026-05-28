@@ -80,7 +80,7 @@ export default function BatchForm({ productId, defaultValues, onSuccess }: Props
             <div><Label>批号 *</Label><Input name="batchNumber" defaultValue={defaultValues?.batchNumber} required readOnly={isReadonly} /></div>
             <div>
               <Label>供应商</Label>
-              <Select value={supplierId} onValueChange={setSupplierId} disabled={isReadonly}>
+              <Select value={supplierId} onValueChange={(v) => v && setSupplierId(v)} disabled={isReadonly}>
                 <SelectTrigger><SelectValue placeholder="选择供应商" /></SelectTrigger>
                 <SelectContent>
                   {customers.map((c) => (

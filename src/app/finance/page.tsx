@@ -70,7 +70,7 @@ export default function FinancePage() {
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold">财务管理</h2>
         <div className="flex gap-2">
-          <Select value={String(year)} onValueChange={v => setYear(Number(v))}>
+          <Select value={String(year)} onValueChange={(v) => v && setYear(Number(v))}>
             <SelectTrigger className="w-24"><SelectValue /></SelectTrigger>
             <SelectContent>{[2024,2025,2026,2027].map(y => <SelectItem key={y} value={String(y)}>{y}年</SelectItem>)}</SelectContent>
           </Select>
@@ -91,7 +91,7 @@ export default function FinancePage() {
         <Card><CardContent className="pt-6"><div className="text-sm text-gray-500">结余</div><div className="text-2xl font-bold" style={{color: totalIncome - totalExpense >= 0 ? "#16a34a" : "#dc2626"}}>¥{(totalIncome - totalExpense).toFixed(2)}</div></CardContent></Card>
       </div>
 
-      <Tabs value={tab} onValueChange={setTab}>
+      <Tabs value={tab} onValueChange={(v) => v && setTab(v)}>
         <TabsList>
           <TabsTrigger value="records">账目记录</TabsTrigger>
           <TabsTrigger value="invoice">发票管理</TabsTrigger>
@@ -106,14 +106,14 @@ export default function FinancePage() {
                 <div><Label>日期</Label><Input type="date" value={fDate} onChange={e => setFDate(e.target.value)} required /></div>
                 <div>
                   <Label>类型</Label>
-                  <Select value={fType} onValueChange={(v: string) => { setFType(v); setFCat(v === "income" ? "销售收入" : "采购成本"); }}>
+                  <Select value={fType} onValueChange={(v) => { if (v) { setFType(v); setFCat(v === "income" ? "销售收入" : "采购成本"); } }}>
                     <SelectTrigger className="w-24"><SelectValue /></SelectTrigger>
                     <SelectContent><SelectItem value="income">收入</SelectItem><SelectItem value="expense">支出</SelectItem></SelectContent>
                   </Select>
                 </div>
                 <div>
                   <Label>分类</Label>
-                  <Select value={fCat} onValueChange={setFCat}>
+                  <Select value={fCat} onValueChange={(v) => v && setFCat(v)}>
                     <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {(fType === "income" ? incomeCategories : expenseCategories).map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
