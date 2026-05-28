@@ -6,25 +6,29 @@ import { Input } from "@/components/ui/input";
 interface Props {
   name: string;
   defaultValue?: string;
-  options: string[];
+  options: string[];        // DB-derived options
+  defaults?: string[];      // hardcoded default options (always shown)
   placeholder?: string;
 }
 
-export default function Combobox({ name, defaultValue, options, placeholder }: Props) {
-  const [mode, setMode] = useState<"existing" | "custom">(
-    defaultValue && !options.includes(defaultValue) ? "custom" : "existing"
+export default function Combobox({ name, defaultValue, options, defaults, placeholder }: Props) {
+  // Merge: defaults first (always), then DB options, dedup
+  const allOptions = [...new Set([...(defaults || []), ...options])];
+
+  const [mode, setMode] = useState<"choose" | "existing" | "custom">(
+    defaultValue
+      ? (defaults?.includes(defaultValue) || options.includes(defaultValue) ? "existing" : "custom")
+      : "choose"
   );
-  const [selectValue, setSelectValue] = useState(
-    defaultValue && options.includes(defaultValue) ? defaultValue : "__choose__"
-  );
+  const [selectValue, setSelectValue] = useState(defaultValue && allOptions.includes(defaultValue) ? defaultValue : "");
   const [customValue, setCustomValue] = useState(
-    defaultValue && !options.includes(defaultValue) ? defaultValue : ""
+    defaultValue && !allOptions.includes(defaultValue) ? defaultValue : ""
   );
 
-  // Sync defaultValue on edit
+  // Sync defaultValue changes (edit mode)
   useEffect(() => {
     if (defaultValue) {
-      if (options.includes(defaultValue)) {
+      if (allOptions.includes(defaultValue)) {
         setMode("existing");
         setSelectValue(defaultValue);
       } else {
@@ -32,40 +36,46 @@ export default function Combobox({ name, defaultValue, options, placeholder }: P
         setCustomValue(defaultValue);
       }
     }
-  }, [defaultValue, options]);
+  }, [defaultValue]);
 
   const finalValue = mode === "custom" ? customValue : selectValue;
 
+  function handleSelectChange(v: string) {
+    if (v === "__custom__") {
+      setMode("custom");
+      setCustomValue("");
+    } else if (v === "") {
+      setMode("choose");
+    } else {
+      setMode("existing");
+      setSelectValue(v);
+    }
+  }
+
   return (
-    <div className="flex gap-2 items-center">
+    <div className="flex gap-2 items-center w-full">
       <select
-        className="h-8 rounded-lg border border-input bg-transparent px-2.5 text-sm"
-        value={mode === "existing" ? selectValue : "__custom__"}
-        onChange={(e) => {
-          if (e.target.value === "__custom__") {
-            setMode("custom");
-          } else {
-            setMode("existing");
-            setSelectValue(e.target.value);
-          }
-        }}
+        className="h-8 rounded-lg border border-input bg-transparent px-2.5 text-sm min-w-0 flex-1"
+        value={mode === "custom" ? "__custom__" : mode === "choose" ? "" : selectValue}
+        onChange={(e) => handleSelectChange(e.target.value)}
       >
-        <option value="__choose__" disabled hidden>{placeholder || "选择"}</option>
-        {options.map((opt) => (
+        <option value="" disabled>{placeholder || "选择"}</option>
+        {allOptions.map((opt) => (
           <option key={opt} value={opt}>{opt}</option>
         ))}
         <option value="__custom__">+ 自定义</option>
       </select>
-      {mode === "custom" && (
+
+      {mode === "custom" ? (
         <Input
           name={name}
           value={customValue}
           onChange={(e) => setCustomValue(e.target.value)}
           placeholder="输入自定义值"
           className="flex-1"
+          autoFocus
         />
-      )}
-      {mode === "existing" && (
+      ) : (
         <input type="hidden" name={name} value={finalValue} />
       )}
     </div>

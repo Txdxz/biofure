@@ -63,7 +63,7 @@ export default async function QuotationDetailPage({ params }: { params: { id: st
         <div>
           <h3 className="font-semibold mt-4 mb-2">关联订单</h3>
           {q.orders.map((o) => (
-            <Link key={o.id} href={`/sales/orders/${o.id}`} className="text-blue-600 hover:underline block">订单 {order.id} - {orderStatusMap[o.status] || o.status}</Link>
+            <Link key={o.id} href={`/sales/orders/${o.id}`} className="text-blue-600 hover:underline block">订单 {o.id} - {orderStatusMap[o.status] || o.status}</Link>
           ))}
         </div>
       )}

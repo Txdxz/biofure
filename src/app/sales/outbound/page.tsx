@@ -4,6 +4,8 @@ import Link from "next/link";
 import OutboundForm from "./outbound-form";
 import EditTrackingButton from "./edit-tracking";
 
+export const dynamic = 'force-dynamic';
+
 export default async function OutboundPage() {
   // 只显示已确认待出库的
   const confirmedOrders = await prisma.order.findMany({

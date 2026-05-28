@@ -1,42 +1,62 @@
 import { getCustomer } from "@/lib/actions";
 import { notFound } from "next/navigation";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import ContactForm from "@/components/contact-form";
 import CustomerForm from "@/components/customer-form";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 
-const typeMap: Record<string, string> = { client: "客户", supplier: "供应商", both: "两者" };
-const statusMap: Record<string, string> = { active: "活跃", dormant: "休眠", potential: "潜在" };
+export const dynamic = 'force-dynamic';
+
 const orderStatusMap: Record<string, string> = { pending: "待确认", confirmed: "已确认", shipped: "已发货", completed: "已完成", cancelled: "已取消" };
 const qStatusMap: Record<string, string> = { draft: "草稿", sent: "已发出", confirmed: "已确认", expired: "已过期", converted: "已转订单" };
 
-export default async function CustomerDetailPage({ params, searchParams }: { params: { id: string }; searchParams: { orderStatus?: string } }) {
+export default async function CustomerDetailPage({ params, searchParams }: { params: { id: string }; searchParams: { filter?: string } }) {
   const customer = await getCustomer(params.id);
   if (!customer) notFound();
 
-  const orderFilter = searchParams.orderStatus || "";
+  const filter = searchParams.filter || "all";
 
-  // 获取该客户的订单（含明细、批次、采购价）
-  const orders = await prisma.order.findMany({
-    where: {
-      customerId: params.id,
-      ...(orderFilter && orderFilter !== "all" ? { status: orderFilter } : {}),
-    },
-    include: {
-      items: {
-        include: {
-          product: { include: { purchasePrices: true } },
-          batch: { include: { product: { include: { purchasePrices: true } } } },
-        },
-      },
-    },
+  // 获取订单
+  let orders = await prisma.order.findMany({
+    where: { customerId: params.id },
+    include: { items: { include: { product: true, batch: true } } },
     orderBy: { date: "desc" },
   });
+
+  // 获取报价单
+  let quotations = await prisma.quotation.findMany({
+    where: { customerId: params.id },
+    include: { items: { include: { product: true } } },
+    orderBy: { date: "desc" },
+  });
+
+  // 合并处理
+  type MixedRow = { id: string; date: string; type: "订单" | "报价单"; status: string; amount: number; products: string; link: string; trackingNumber?: string; invoiceStatus?: string; invoiceNo?: string; };
+  let rows: MixedRow[] = [];
+
+  rows = rows.concat(orders.map(o => ({
+    id: o.id, date: o.date.toISOString(), type: "订单" as const,
+    status: orderStatusMap[o.status] || o.status, amount: o.totalAmount,
+    products: o.items.map(i => i.product.name + ` x${i.quantity}${i.product.unit}`).join("、"),
+    link: `/sales/orders/${o.id}`, trackingNumber: o.trackingNumber || undefined,
+    invoiceStatus: o.invoiceStatus || undefined, invoiceNo: o.invoiceNo || undefined,
+  })));
+
+  rows = rows.concat(quotations.map(q => ({
+    id: q.id, date: q.date.toISOString(), type: "报价单" as const,
+    status: qStatusMap[q.status] || q.status, amount: q.totalAmount,
+    products: q.items.map(i => i.product.name).join("、"), link: `/sales/quotations/${q.id}`,
+  })));
+
+  // 筛选
+  if (filter === "报价单") rows = rows.filter(r => r.type === "报价单");
+  else if (filter === "订单") rows = rows.filter(r => r.type === "订单");
+  else if (filter !== "all") rows = rows.filter(r => r.type === "订单" && r.status === filter);
+
+  rows.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   return (
     <div className="space-y-4">
@@ -48,144 +68,65 @@ export default async function CustomerDetailPage({ params, searchParams }: { par
         <CustomerForm defaultValues={customer} />
       </div>
 
-      <Tabs defaultValue="orders">
-        <TabsList>
-          <TabsTrigger value="info">基本信息</TabsTrigger>
-          <TabsTrigger value="contacts">联系人 ({customer.contacts.length})</TabsTrigger>
-          <TabsTrigger value="orders">订单 ({orders.length})</TabsTrigger>
-          <TabsTrigger value="quotations">报价 ({customer.quotations.length})</TabsTrigger>
-        </TabsList>
+      <Card>
+        <CardContent className="grid grid-cols-2 gap-4 pt-6">
+          <div><span className="text-gray-500">类型：</span>{customer.type === "client" ? "下游客户" : customer.type === "supplier" ? "供应商" : "两者都是"}</div>
+          <div><span className="text-gray-500">状态：</span>{customer.status === "active" ? "活跃" : customer.status === "dormant" ? "休眠" : "潜在"}</div>
+          <div><span className="text-gray-500">行业：</span>{customer.industry || "-"}</div>
+          <div><span className="text-gray-500">分级：</span>{customer.level}</div>
+          <div className="col-span-2"><span className="text-gray-500">来源：</span>{customer.source || "-"}</div>
+        </CardContent>
+      </Card>
 
-        <TabsContent value="info">
-          <Card>
-            <CardContent className="grid grid-cols-2 gap-4 pt-6">
-              <div><span className="text-gray-500">简称：</span>{customer.shortName || "-"}</div>
-              <div><span className="text-gray-500">统一社会信用代码：</span>{customer.uscc || "-"}</div>
-              <div><span className="text-gray-500">类型：</span>{typeMap[customer.type]}</div>
-              <div><span className="text-gray-500">行业：</span>{customer.industry || "-"}</div>
-              <div><span className="text-gray-500">分级：</span>{customer.level}</div>
-              <div><span className="text-gray-500">状态：</span>{statusMap[customer.status]}</div>
-              <div><span className="text-gray-500">来源：</span>{customer.source || "-"}</div>
-              <div className="col-span-2"><span className="text-gray-500">地址：</span>{customer.address || "-"}</div>
-              <div className="col-span-2"><span className="text-gray-500">银行账户：</span>{customer.bankAccount || "-"}</div>
-              <div className="col-span-2"><span className="text-gray-500">备注：</span>{customer.remark || "-"}</div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+      <form className="flex gap-2 items-center" method="GET">
+        <Select name="filter" defaultValue={filter}>
+          <SelectTrigger className="w-40"><SelectValue placeholder="筛选" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">全部</SelectItem>
+            <SelectItem value="报价单">报价单</SelectItem>
+            <SelectItem value="订单">订单</SelectItem>
+            <SelectItem value="待确认">待确认</SelectItem>
+            <SelectItem value="已确认">已确认</SelectItem>
+            <SelectItem value="已发货">已发货</SelectItem>
+            <SelectItem value="已完成">已完成</SelectItem>
+            <SelectItem value="已取消">已取消</SelectItem>
+          </SelectContent>
+        </Select>
+        <button type="submit" className="px-3 py-1 border rounded-md text-sm hover:bg-gray-50">筛选</button>
+      </form>
 
-        <TabsContent value="contacts">
-          <div className="mb-4"><ContactForm customerId={customer.id} /></div>
-          <Table>
-            <TableHeader><TableRow><TableHead>姓名</TableHead><TableHead>职务</TableHead><TableHead>电话</TableHead><TableHead>微信</TableHead><TableHead>邮箱</TableHead><TableHead>主要联系人</TableHead><TableHead className="w-24">操作</TableHead></TableRow></TableHeader>
-            <TableBody>
-              {customer.contacts.map((c: any) => (
-                <TableRow key={c.id}>
-                  <TableCell>{c.name}</TableCell><TableCell>{c.position || "-"}</TableCell><TableCell>{c.phone || "-"}</TableCell><TableCell>{c.wechat || "-"}</TableCell><TableCell>{c.email || "-"}</TableCell><TableCell>{c.isPrimary ? "是" : ""}</TableCell>
-                  <TableCell><ContactForm customerId={customer.id} defaultValues={c} /></TableCell>
-                </TableRow>
-              ))}
-              {customer.contacts.length === 0 && <TableRow><TableCell colSpan={7} className="text-center text-gray-400">暂无联系人</TableCell></TableRow>}
-            </TableBody>
-          </Table>
-        </TabsContent>
-
-        <TabsContent value="orders">
-          <form className="mb-4 flex gap-2 items-center" method="GET">
-            <Select name="orderStatus" defaultValue={orderFilter}>
-              <SelectTrigger className="w-32"><SelectValue placeholder="状态筛选" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">全部状态</SelectItem>
-                <SelectItem value="pending">待确认</SelectItem>
-                <SelectItem value="confirmed">已确认</SelectItem>
-                <SelectItem value="shipped">已发货</SelectItem>
-                <SelectItem value="completed">已完成</SelectItem>
-                <SelectItem value="cancelled">已取消</SelectItem>
-              </SelectContent>
-            </Select>
-            <button type="submit" className="px-3 py-1 border rounded-md text-sm hover:bg-gray-50">筛选</button>
-          </form>
-
-          {orders.length === 0 ? (
-            <p className="text-gray-400 text-center py-8">暂无订单</p>
-          ) : (
-            <div className="space-y-6">
-              {orders.map((order) => {
-                // 计算每个订单项的利润
-                const rows = order.items.map((item: any) => {
-                  const pps = (item.product as any).purchasePrices || [];
-                  const pp = pps.sort((a: any, b: any) => new Date(b.validFrom).getTime() - new Date(a.validFrom).getTime())[0];
-                  const cost = pp?.price || 0;
-                  const profit = (item.unitPrice - cost) * item.quantity;
-                  const afterTaxProfit = profit / 1.13; // 13% VAT
-                  return { item, cost, profit, afterTaxProfit };
-                });
-
-                return (
-                  <Card key={order.id}>
-                    <CardContent className="pt-4">
-                      <div className="flex items-center gap-4 mb-3 text-sm">
-                        <span className="text-gray-500">{new Date(order.date).toLocaleDateString("zh-CN")}</span>
-                        {order.contractNo && <span className="font-mono text-gray-500">合同: {order.contractNo}</span>}
-                        <Badge variant="outline">{orderStatusMap[order.status] || order.status}</Badge>
-                        <span className="font-bold">¥{order.totalAmount.toFixed(2)}</span>
-                        {order.trackingNumber && <span className="text-gray-500">物流: {order.trackingNumber}</span>}
-                        {order.invoiceStatus === "issued" && <Badge variant="outline" className="text-xs">已开票 {order.invoiceNo}</Badge>}
-                        <Link href={`/sales/orders/${order.id}`} className="text-blue-600 hover:underline ml-auto text-xs">详情</Link>
-                      </div>
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>产品</TableHead>
-                            <TableHead>数量</TableHead>
-                            <TableHead>单价</TableHead>
-                            <TableHead>税率</TableHead>
-                            <TableHead>小计</TableHead>
-                            <TableHead>出库批次</TableHead>
-                            <TableHead>采购成本</TableHead>
-                            <TableHead>利润(税前)</TableHead>
-                            <TableHead>利润(税后)</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {rows.map((r, i) => (
-                            <TableRow key={r.item.id}>
-                              <TableCell>{r.item.product.name}</TableCell>
-                              <TableCell>{r.item.quantity}{r.item.product.unit}</TableCell>
-                              <TableCell>¥{r.item.unitPrice.toFixed(2)}</TableCell>
-                              <TableCell>{r.item.taxRate}%</TableCell>
-                              <TableCell>¥{r.item.subtotal.toFixed(2)}</TableCell>
-                              <TableCell>{r.item.batch?.batchNumber || "-"}</TableCell>
-                              <TableCell className="text-gray-500">¥{r.cost.toFixed(2)}</TableCell>
-                              <TableCell className="font-medium text-green-600">¥{r.profit.toFixed(2)}</TableCell>
-                              <TableCell className="text-sm text-green-600">¥{r.afterTaxProfit.toFixed(2)}</TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          )}
-        </TabsContent>
-
-        <TabsContent value="quotations">
-          <Table>
-            <TableHeader><TableRow><TableHead>日期</TableHead><TableHead>总金额</TableHead><TableHead>状态</TableHead></TableRow></TableHeader>
-            <TableBody>
-              {customer.quotations.map((q: any) => (
-                <TableRow key={q.id}>
-                  <TableCell><Link href={`/sales/quotations/${q.id}`} className="text-blue-600 hover:underline">{new Date(q.date).toLocaleDateString("zh-CN")}</Link></TableCell>
-                  <TableCell>¥{q.totalAmount.toFixed(2)}</TableCell>
-                  <TableCell>{qStatusMap[q.status] || q.status}</TableCell>
-                </TableRow>
-              ))}
-              {customer.quotations.length === 0 && <TableRow><TableCell colSpan={3} className="text-center text-gray-400">暂无报价</TableCell></TableRow>}
-            </TableBody>
-          </Table>
-        </TabsContent>
-      </Tabs>
+      {rows.length === 0 ? (
+        <p className="text-gray-400 text-center py-8">暂无订单或报价</p>
+      ) : (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>日期</TableHead>
+              <TableHead>类型</TableHead>
+              <TableHead>状态</TableHead>
+              <TableHead>产品</TableHead>
+              <TableHead className="text-right">金额</TableHead>
+              <TableHead>物流/发票</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.map(r => (
+              <TableRow key={r.id}>
+                <TableCell className="text-sm">{new Date(r.date).toLocaleDateString("zh-CN")}</TableCell>
+                <TableCell><Badge variant={r.type === "订单" ? "default" : "outline"}>{r.type}</Badge></TableCell>
+                <TableCell><Badge variant="outline">{r.status}</Badge></TableCell>
+                <TableCell className="text-sm max-w-48 truncate"><Link href={r.link} className="text-blue-600 hover:underline">{r.products}</Link></TableCell>
+                <TableCell className="text-right font-medium">¥{r.amount.toFixed(2)}</TableCell>
+                <TableCell className="text-xs text-gray-500">
+                  {r.trackingNumber && <span>物流: {r.trackingNumber}</span>}
+                  {r.invoiceStatus === "issued" && <span> | 发票: {r.invoiceNo}</span>}
+                  {!r.trackingNumber && r.type === "订单" && <span>-</span>}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      )}
     </div>
   );
 }
