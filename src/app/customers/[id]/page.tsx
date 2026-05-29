@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import CustomerForm from "@/components/customer-form";
 import Link from "next/link";
@@ -13,50 +14,66 @@ export const dynamic = 'force-dynamic';
 const orderStatusMap: Record<string, string> = { pending: "待确认", confirmed: "已确认", shipped: "已发货", completed: "已完成", cancelled: "已取消" };
 const qStatusMap: Record<string, string> = { draft: "草稿", sent: "已发出", confirmed: "已确认", expired: "已过期", converted: "已转订单" };
 
-export default async function CustomerDetailPage({ params, searchParams }: { params: { id: string }; searchParams: { filter?: string } }) {
+export default async function CustomerDetailPage({ params, searchParams }: { params: { id: string }; searchParams: { filter?: string; dateFrom?: string; dateTo?: string } }) {
   const customer = await getCustomer(params.id);
   if (!customer) notFound();
 
   const filter = searchParams.filter || "all";
+  const dateFrom = searchParams.dateFrom || "";
+  const dateTo = searchParams.dateTo || "";
 
-  // 获取订单
+  // 日期范围条件
+  const dateFilter: any = {};
+  if (dateFrom) dateFilter.gte = new Date(dateFrom);
+  if (dateTo) {
+    const end = new Date(dateTo);
+    end.setHours(23, 59, 59, 999);
+    dateFilter.lte = end;
+  }
+
+  // 获取订单（含明细和批次价格）
   let orders = await prisma.order.findMany({
-    where: { customerId: params.id },
-    include: { items: { include: { product: true, batch: true } } },
+    where: { customerId: params.id, ...(Object.keys(dateFilter).length ? { date: dateFilter } : {}) },
+    include: { items: { include: { product: { include: { purchasePrices: true } }, batch: true } } },
     orderBy: { date: "desc" },
   });
 
   // 获取报价单
   let quotations = await prisma.quotation.findMany({
-    where: { customerId: params.id },
+    where: { customerId: params.id, ...(Object.keys(dateFilter).length ? { date: dateFilter } : {}) },
     include: { items: { include: { product: true } } },
     orderBy: { date: "desc" },
   });
 
-  // 合并处理
-  type MixedRow = { id: string; date: string; type: "订单" | "报价单"; status: string; amount: number; products: string; link: string; trackingNumber?: string; invoiceStatus?: string; invoiceNo?: string; };
-  let rows: MixedRow[] = [];
+  // 计算总销售额和总利润
+  let totalSales = 0, totalProfit = 0;
+  for (const o of orders) {
+    totalSales += o.totalAmount;
+    for (const item of o.items) {
+      const latestPP = (item.product as any).purchasePrices?.[0];
+      const cost = latestPP?.price || 0;
+      totalProfit += (item.unitPrice - cost) * item.quantity;
+    }
+  }
+  totalProfit = totalProfit / 1.13; // 税后
 
-  rows = rows.concat(orders.map(o => ({
-    id: o.id, date: o.date.toISOString(), type: "订单" as const,
-    status: orderStatusMap[o.status] || o.status, amount: o.totalAmount,
-    products: o.items.map(i => i.product.name + ` x${i.quantity}${i.product.unit}`).join("、"),
-    link: `/sales/orders/${o.id}`, trackingNumber: o.trackingNumber || undefined,
-    invoiceStatus: o.invoiceStatus || undefined, invoiceNo: o.invoiceNo || undefined,
-  })));
+  // 合并数据
+  const rows: any[] = [];
+  for (const o of orders) {
+    const orderProfit = o.items.reduce((s, i: any) => {
+      const pp = (i.product as any).purchasePrices?.[0];
+      return s + (i.unitPrice - (pp?.price || 0)) * i.quantity;
+    }, 0) / 1.13;
+    rows.push({ id: o.id, date: o.date, type: "订单", status: orderStatusMap[o.status] || o.status, amount: o.totalAmount, products: o.items.map((i: any) => i.product.name + ` x${i.quantity}`).join("、"), link: `/sales/orders/${o.id}`, trackingNumber: o.trackingNumber, invoiceNo: o.invoiceNo, profit: orderProfit });
+  }
+  for (const q of quotations) {
+    rows.push({ id: q.id, date: q.date, type: "报价单", status: qStatusMap[q.status] || q.status, amount: q.totalAmount, products: q.items.map((i: any) => i.product.name).join("、"), link: `/sales/quotations/${q.id}`, profit: null });
+  }
 
-  rows = rows.concat(quotations.map(q => ({
-    id: q.id, date: q.date.toISOString(), type: "报价单" as const,
-    status: qStatusMap[q.status] || q.status, amount: q.totalAmount,
-    products: q.items.map(i => i.product.name).join("、"), link: `/sales/quotations/${q.id}`,
-  })));
-
-  // 筛选
-  if (filter === "报价单") rows = rows.filter(r => r.type === "报价单");
-  else if (filter === "订单") rows = rows.filter(r => r.type === "订单");
-  else if (filter !== "all") rows = rows.filter(r => r.type === "订单" && r.status === filter);
-
-  rows.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  if (filter === "报价单") rows.splice(0, rows.length, ...rows.filter(r => r.type === "报价单"));
+  else if (filter === "订单") rows.splice(0, rows.length, ...rows.filter(r => r.type === "订单"));
+  else if (filter !== "all") rows.splice(0, rows.length, ...rows.filter(r => r.type === "订单" && orderStatusMap[filter]));
+  rows.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   return (
     <div className="space-y-4">
@@ -74,13 +91,17 @@ export default async function CustomerDetailPage({ params, searchParams }: { par
           <div><span className="text-gray-500">状态：</span>{customer.status === "active" ? "活跃" : customer.status === "dormant" ? "休眠" : "潜在"}</div>
           <div><span className="text-gray-500">行业：</span>{customer.industry || "-"}</div>
           <div><span className="text-gray-500">分级：</span>{customer.level}</div>
-          <div className="col-span-2"><span className="text-gray-500">来源：</span>{customer.source || "-"}</div>
+          <div><span className="text-gray-500">来源：</span>{customer.source || "-"}</div>
+          <div><span className="text-gray-500">销售额：</span><span className="font-bold text-lg">¥{totalSales.toFixed(2)}</span></div>
+          <div><span className="text-gray-500">利润（税后）：</span><span className="font-bold text-lg text-green-600">¥{totalProfit.toFixed(2)}</span></div>
         </CardContent>
       </Card>
 
-      <form className="flex gap-2 items-center" method="GET">
+      <form className="flex gap-2 items-end flex-wrap" method="GET">
+        <div><span className="text-xs text-gray-500 block mb-1">开始日期</span><Input name="dateFrom" type="date" className="w-36" defaultValue={dateFrom} /></div>
+        <div><span className="text-xs text-gray-500 block mb-1">结束日期</span><Input name="dateTo" type="date" className="w-36" defaultValue={dateTo} /></div>
         <Select name="filter" defaultValue={filter}>
-          <SelectTrigger className="w-40"><SelectValue placeholder="筛选" /></SelectTrigger>
+          <SelectTrigger className="w-36"><SelectValue placeholder="筛选" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">全部</SelectItem>
             <SelectItem value="报价单">报价单</SelectItem>
@@ -92,7 +113,10 @@ export default async function CustomerDetailPage({ params, searchParams }: { par
             <SelectItem value="已取消">已取消</SelectItem>
           </SelectContent>
         </Select>
-        <button type="submit" className="px-3 py-1 border rounded-md text-sm hover:bg-gray-50">筛选</button>
+        <button type="submit" className="px-3 py-1.5 border rounded-md text-sm hover:bg-gray-50 h-8">筛选</button>
+        {(dateFrom || dateTo || filter !== "all") && (
+          <a href={`/customers/${params.id}`} className="text-xs text-gray-400 hover:underline">清除筛选</a>
+        )}
       </form>
 
       {rows.length === 0 ? (
@@ -106,20 +130,22 @@ export default async function CustomerDetailPage({ params, searchParams }: { par
               <TableHead>状态</TableHead>
               <TableHead>产品</TableHead>
               <TableHead className="text-right">金额</TableHead>
+              <TableHead className="text-right">利润（税后）</TableHead>
               <TableHead>物流/发票</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {rows.map(r => (
+            {rows.map((r: any) => (
               <TableRow key={r.id}>
-                <TableCell className="text-sm">{new Date(r.date).toLocaleDateString("zh-CN")}</TableCell>
+                <TableCell className="text-sm">{r.date.toLocaleDateString ? r.date.toLocaleDateString("zh-CN") : new Date(r.date).toLocaleDateString("zh-CN")}</TableCell>
                 <TableCell><Badge variant={r.type === "订单" ? "default" : "outline"}>{r.type}</Badge></TableCell>
                 <TableCell><Badge variant="outline">{r.status}</Badge></TableCell>
                 <TableCell className="text-sm max-w-48 truncate"><Link href={r.link} className="text-blue-600 hover:underline">{r.products}</Link></TableCell>
                 <TableCell className="text-right font-medium">¥{r.amount.toFixed(2)}</TableCell>
+                <TableCell className="text-right text-green-600 font-medium">{r.profit !== null ? `¥${r.profit.toFixed(2)}` : "-"}</TableCell>
                 <TableCell className="text-xs text-gray-500">
                   {r.trackingNumber && <span>物流: {r.trackingNumber}</span>}
-                  {r.invoiceStatus === "issued" && <span> | 发票: {r.invoiceNo}</span>}
+                  {r.invoiceNo && <span> | 发票: {r.invoiceNo}</span>}
                   {!r.trackingNumber && r.type === "订单" && <span>-</span>}
                 </TableCell>
               </TableRow>

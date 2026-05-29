@@ -39,7 +39,7 @@ export default function OutboundForm({ order }: { order: any }) {
   async function handleOutbound() {
     const assignments = Object.entries(selections).map(([orderItemId, sel]) => ({
       orderItemId, batchId: sel.batchId, quantity: sel.quantity,
-    }));
+    })).filter(a => a.quantity > 0 && a.batchId);
     if (assignments.length === 0 || !trackingNumber.trim()) return;
     setSubmitting(true);
     try { await outboundOrder(order.id, trackingNumber, assignments); router.refresh(); }
@@ -84,8 +84,8 @@ export default function OutboundForm({ order }: { order: any }) {
               <input
                 type="number"
                 className="border rounded px-2 py-1 text-sm w-16"
-                value={sel?.quantity || remain}
-                min={1}
+                value={sel?.quantity ?? remain}
+                min={0}
                 max={remain}
                 onChange={(e) => handleQtyChange(item.id, Number(e.target.value))}
               />

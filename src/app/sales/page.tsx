@@ -5,10 +5,10 @@ import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import InvoiceButton from "./invoice-button";
 
-export const dynamic = 'force-dynamic';
-
 const statusMap: Record<string, string> = { pending: "待确认", confirmed: "已确认", shipped: "已发货", completed: "已完成", cancelled: "已取消" };
 const qStatusMap: Record<string, string> = { draft: "草稿", sent: "已发出", confirmed: "已确认", expired: "已过期", converted: "已转订单" };
+
+export const dynamic = 'force-dynamic';
 
 export default async function SalesPage() {
   const quotations = await getQuotations();
@@ -52,17 +52,30 @@ export default async function SalesPage() {
         <CardContent>
           <Table>
             <TableHeader>
-              <TableRow><TableHead>客户</TableHead><TableHead>日期</TableHead><TableHead>产品</TableHead><TableHead>金额</TableHead><TableHead>应收/已收</TableHead><TableHead>状态</TableHead><TableHead>出库/物流</TableHead><TableHead>发票</TableHead><TableHead>操作</TableHead></TableRow>
+              <TableRow><TableHead>客户</TableHead><TableHead>日期</TableHead><TableHead>产品</TableHead><TableHead>金额</TableHead><TableHead>应收/已收</TableHead><TableHead>状态</TableHead><TableHead>付款方式</TableHead><TableHead>回款状态</TableHead><TableHead>账期</TableHead><TableHead>出库/物流</TableHead><TableHead>发票</TableHead><TableHead>操作</TableHead></TableRow>
             </TableHeader>
             <TableBody>
-              {orders.slice(0, 20).map((o) => (
-                <TableRow key={o.id}>
-                  <TableCell>{o.customer.fullName}</TableCell>
-                  <TableCell>{new Date(o.date).toLocaleDateString("zh-CN")}</TableCell>
-                  <TableCell className="text-sm max-w-40 truncate">{o.items.map((i: any) => i.product.name).join("、")}</TableCell>
-                  <TableCell>¥{o.totalAmount.toFixed(2)}</TableCell>
+              {orders.slice(0, 20).map((o) => {
+                const today = new Date();
+                const endDate = o.paymentDateEnd ? new Date(o.paymentDateEnd) : null;
+                const overdue = endDate && today > endDate && o.paymentStatus !== "已回款";
+                return (
+                <TableRow key={o.id} className={overdue ? "bg-red-50" : ""}>
+                  <TableCell className={overdue ? "text-red-700" : ""}>{o.customer.fullName}</TableCell>
+                  <TableCell className={overdue ? "text-red-700" : ""}>{new Date(o.date).toLocaleDateString("zh-CN")}</TableCell>
+                  <TableCell className={`text-sm max-w-40 truncate ${overdue ? "text-red-700" : ""}`}>{o.items.map((i: any) => i.product.name).join("、")}</TableCell>
+                  <TableCell className={overdue ? "text-red-700 font-medium" : ""}>¥{o.totalAmount.toFixed(2)}</TableCell>
                   <TableCell className="text-sm">¥{o.receivedAmount.toFixed(0)} / ¥{o.receivableAmount.toFixed(0)}</TableCell>
                   <TableCell><Badge variant="outline">{statusMap[o.status] || o.status}</Badge></TableCell>
+                  <TableCell className="text-sm">{o.paymentMethod || "-"}</TableCell>
+                  <TableCell>
+                    {o.paymentStatus === "未回款" ? <span className={`${overdue ? "text-red-600 font-medium" : "text-amber-600"}`}>{o.paymentStatus}</span> : <Badge variant="outline">{o.paymentStatus}</Badge>}
+                  </TableCell>
+                  <TableCell className="text-xs">
+                    {o.paymentDateStart && o.paymentDateEnd ? (
+                      <span className={overdue ? "text-red-600" : ""}>{new Date(o.paymentDateStart).toLocaleDateString("zh-CN")}~{new Date(o.paymentDateEnd).toLocaleDateString("zh-CN")}</span>
+                    ) : <span className="text-gray-400">-</span>}
+                  </TableCell>
                   <TableCell className="text-xs">
                     {o.status === "shipped" || o.status === "completed" ? (
                       <span>{statusMap[o.status]} {o.trackingNumber ? `| ${o.trackingNumber}` : ""}</span>

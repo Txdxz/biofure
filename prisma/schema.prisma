@@ -139,6 +139,7 @@ model Quotation {
   status      String   @default("draft")
   totalAmount Float    @default(0)
   remark      String?
+  paymentMethod String?                            // 付款方式
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   customer    Customer @relation(fields: [customerId], references: [id])
@@ -177,6 +178,9 @@ model Order {
   invoiceNo         String?                              // 发票号
   invoiceDate       DateTime?                            // 开票日期
   invoiceStatus     String   @default("none")            // none | issued
+  paymentStatus     String   @default("未回款")          // 未回款 | 已回款 | 已付首款
+  paymentDateStart  DateTime?                            // 账期开始
+  paymentDateEnd    DateTime?                            // 账期结束
   receivedDate      DateTime?
   createdAt         DateTime   @default(now())
   updatedAt         DateTime   @updatedAt

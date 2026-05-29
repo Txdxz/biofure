@@ -136,7 +136,7 @@ export async function getQuotation(id: string) {
 }
 export async function createQuotation(data: any) {
   const total = data.items.reduce((s: number, i: any) => s + i.quantity * i.unitPrice, 0);
-  const q = await prisma.quotation.create({ data: { customerId: data.customerId, validTo: new Date(data.validTo), remark: data.remark, totalAmount: total, items: { create: data.items.map((i: any) => ({ productId: i.productId, quantity: i.quantity, unitPrice: i.unitPrice, subtotal: i.quantity * i.unitPrice })) } } });
+  const q = await prisma.quotation.create({ data: { customerId: data.customerId, validTo: new Date(data.validTo), remark: data.remark, paymentMethod: data.paymentMethod || null, totalAmount: total, items: { create: data.items.map((i: any) => ({ productId: i.productId, quantity: i.quantity, unitPrice: i.unitPrice, subtotal: i.quantity * i.unitPrice })) } } });
   for (const item of data.items) {
     const existing = await prisma.sellPrice.findFirst({ where: { productId: item.productId, customerId: data.customerId } });
     if (existing) await prisma.sellPrice.update({ where: { id: existing.id }, data: { price: item.unitPrice, validFrom: new Date() } });
@@ -155,10 +155,12 @@ export async function getOrder(id: string) {
   return prisma.order.findUnique({ where: { id }, include: { customer: true, quotation: { include: { items: { include: { product: true } } } }, items: { include: { product: { include: { purchasePrices: true } }, batch: true } }, afterSales: { orderBy: { createdAt: "desc" } } } });
 }
 export async function createOrderFromQuotation(quotationId: string) {
-  const q = await prisma.quotation.findUnique({ where: { id: quotationId }, include: { items: true } });
+  const q = await prisma.quotation.findUnique({ where: { id: quotationId }, include: { items: true, customer: true } });
   if (!q) throw new Error("报价单不存在");
-  const order = await prisma.order.create({ data: { customerId: q.customerId, quotationId: q.id, totalAmount: q.totalAmount, receivableAmount: q.totalAmount, items: { create: q.items.map(i => ({ productId: i.productId, quantity: i.quantity, unitPrice: i.unitPrice, subtotal: i.subtotal, taxRate: 13.0 })) } } });
+  const order = await prisma.order.create({ data: { customerId: q.customerId, quotationId: q.id, totalAmount: q.totalAmount, receivableAmount: q.totalAmount, paymentMethod: q.paymentMethod || undefined, paymentStatus: "未回款", items: { create: q.items.map(i => ({ productId: i.productId, quantity: i.quantity, unitPrice: i.unitPrice, subtotal: i.subtotal, taxRate: 13.0 })) } } });
   await prisma.quotation.update({ where: { id: quotationId }, data: { status: "converted" } });
+  // 转订单自动生成财务收入
+  await prisma.financeRecord.create({ data: { type: "income", category: "销售收入", amount: q.totalAmount, description: `${q.customer.fullName} 转订单`, date: new Date(), orderId: order.id } });
   revalidatePath("/sales"); return order;
 }
 export async function updateOrderStatus(id: string, status: string) {
@@ -179,7 +181,7 @@ export async function updateOrderStatus(id: string, status: string) {
   revalidatePath("/sales");
 }
 export async function updateOrder(id: string, data: any) {
-  const { receivedDate, contractStartDate, contractEndDate, receivedAmount, totalAmount, receivableAmount, ...rest } = data;
+  const { receivedDate, contractStartDate, contractEndDate, paymentDateStart, paymentDateEnd, receivedAmount, totalAmount, receivableAmount, ...rest } = data;
   await prisma.order.update({
     where: { id },
     data: {
@@ -187,6 +189,8 @@ export async function updateOrder(id: string, data: any) {
       receivedDate: receivedDate ? new Date(receivedDate) : undefined,
       contractStartDate: contractStartDate ? new Date(contractStartDate) : undefined,
       contractEndDate: contractEndDate ? new Date(contractEndDate) : undefined,
+      paymentDateStart: paymentDateStart ? new Date(paymentDateStart) : undefined,
+      paymentDateEnd: paymentDateEnd ? new Date(paymentDateEnd) : undefined,
       receivedAmount: receivedAmount ? Number(receivedAmount) : undefined,
       totalAmount: totalAmount ? Number(totalAmount) : undefined,
       receivableAmount: receivableAmount ? Number(receivableAmount) : undefined,
@@ -205,7 +209,10 @@ export async function outboundOrder(orderId: string, trackingNumber: string, bat
   // 检查是否所有项都已出完
   const items = await prisma.orderItem.findMany({ where: { orderId } });
   const allShipped = items.every(i => i.shippedQuantity >= i.quantity);
-  await prisma.order.update({ where: { id: orderId }, data: { status: allShipped ? "shipped" : "confirmed", trackingNumber } });
+  // 追加物流单号
+  const existingOrder = await prisma.order.findUnique({ where: { id: orderId }, select: { trackingNumber: true } });
+  const newTracking = existingOrder?.trackingNumber ? existingOrder.trackingNumber + "、" + trackingNumber : trackingNumber;
+  await prisma.order.update({ where: { id: orderId }, data: { status: allShipped ? "shipped" : "confirmed", trackingNumber: newTracking } });
   revalidatePath("/sales");
 }
 
@@ -220,22 +227,46 @@ export async function updateAfterSale(id: string, data: any) {
 export async function deleteAfterSale(id: string) { await prisma.afterSale.delete({ where: { id } }); revalidatePath("/sales"); }
 
 // ============ 财务 ============
-export async function getFinanceRecords(month?: number, year?: number) {
+export async function getFinanceRecords(month?: number, year?: number, orderFilter?: string, typeFilter?: string, categoryFilter?: string, startDate?: string, endDate?: string) {
   const now = new Date();
   const m = month !== undefined ? month : now.getMonth() + 1;
   const y = year || now.getFullYear();
-  const startDate = m === 0 ? new Date(y, 0, 1) : new Date(y, m - 1, 1);
-  const endDate = m === 0 ? new Date(y, 11, 31, 23, 59, 59) : new Date(y, m, 0, 23, 59, 59);
-  const records = await prisma.financeRecord.findMany({
-    where: { date: { gte: startDate, lte: endDate } },
-    orderBy: { date: "desc" },
-  });
-  let totalIncome = 0, totalExpense = 0;
-  for (const r of records) {
-    if (r.type === "income") totalIncome += r.amount;
-    else totalExpense += r.amount;
+  let sDate: Date | undefined, eDate: Date | undefined;
+  if (startDate) sDate = new Date(startDate);
+  if (endDate) { eDate = new Date(endDate); eDate.setHours(23, 59, 59, 999); }
+  const startDateFinal = sDate || (m === 0 ? new Date(y, 0, 1) : new Date(y, m - 1, 1));
+  const endDateFinal = eDate || (m === 0 ? new Date(y, 11, 31, 23, 59, 59) : new Date(y, m, 0, 23, 59, 59));
+
+  const where: any = { date: { gte: startDateFinal, lte: endDateFinal } };
+  if (typeFilter && typeFilter !== "all") where.type = typeFilter;
+  if (categoryFilter && categoryFilter !== "all") where.category = categoryFilter;
+
+  let records = await prisma.financeRecord.findMany({ where, orderBy: { date: "desc" } });
+
+  const orderIdsArr = records.filter(r => r.orderId).map(r => r.orderId!);
+  const orderIds: string[] = [];
+  for (let i = 0; i < orderIdsArr.length; i++) { if (!orderIds.includes(orderIdsArr[i])) orderIds.push(orderIdsArr[i]); }
+  let orderStatuses: Record<string, string> = {};
+  let paymentStatuses: Record<string, string> = {};
+  if (orderIds.length > 0) {
+    const orders = await prisma.order.findMany({ where: { id: { in: orderIds } }, select: { id: true, status: true, paymentStatus: true } });
+    orders.forEach(o => { orderStatuses[o.id] = o.status; paymentStatuses[o.id] = o.paymentStatus || "未回款"; });
   }
-  return { records, totalIncome, totalExpense, month: m, year: y };
+
+  if (orderFilter === "cancelled") records = records.filter(r => r.orderId && orderStatuses[r.orderId] === "cancelled");
+  else if (orderFilter === "normal") records = records.filter(r => !r.orderId || orderStatuses[r.orderId] !== "cancelled");
+
+  const recordsWithOrderStatus = records.map(r => ({ ...r, orderStatus: r.orderId ? orderStatuses[r.orderId] || null : null, paymentStatus: r.orderId ? paymentStatuses[r.orderId] || null : null }));
+
+  let totalIncome = 0, totalExpense = 0, collectedIncome = 0;
+  for (const r of records) {
+    if (r.type === "income") {
+      totalIncome += r.amount;
+      const ps = paymentStatuses[r.orderId || ""];
+      if (!r.orderId || ps === "已回款" || ps === "已付首款") collectedIncome += r.amount;
+    } else totalExpense += r.amount;
+  }
+  return { records: recordsWithOrderStatus, totalIncome, totalExpense, collectedIncome, month: m, year: y };
 }
 
 export async function createFinanceRecord(data: any) {

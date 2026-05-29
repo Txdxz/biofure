@@ -14,6 +14,7 @@ export default function NewQuotationPage() {
   const [customerId, setCustomerId] = useState("");
   const [validTo, setValidTo] = useState("");
   const [remark, setRemark] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("");
   const [rows, setRows] = useState<{ productId: string; quantity: number; unitPrice: number }[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const router = useRouter();
@@ -48,7 +49,7 @@ export default function NewQuotationPage() {
     if (!customerId || !validTo || rows.length === 0) return;
     setSubmitting(true);
     try {
-      await createQuotation({ customerId, validTo, remark: remark || undefined, items: rows });
+      await createQuotation({ customerId, validTo, remark: remark || undefined, paymentMethod: paymentMethod || undefined, items: rows });
       router.push("/sales");
       router.refresh();
     } catch (error) {
@@ -68,19 +69,26 @@ export default function NewQuotationPage() {
       <div className="space-y-4 max-w-3xl">
         <div className="w-64">
           <Label>客户 *</Label>
-          <Select value={customerId} onValueChange={(v) => v && setCustomerId(v)}>
-            <SelectTrigger><SelectValue placeholder="选择客户" /></SelectTrigger>
-            <SelectContent>
-              {clientCustomers.map((c) => (
-                <SelectItem key={c.id} value={c.id}>{c.fullName}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <select className="h-8 rounded-lg border border-input bg-transparent px-2.5 text-sm w-full" value={customerId} onChange={(e) => setCustomerId(e.target.value)}>
+            <option value="">选择客户</option>
+            {clientCustomers.map((c) => (
+              <option key={c.id} value={c.id}>{c.fullName}</option>
+            ))}
+          </select>
         </div>
 
         <div className="w-48">
           <Label>报价有效期 *</Label>
           <Input type="date" value={validTo} onChange={(e) => setValidTo(e.target.value)} required />
+        </div>
+        <div className="w-48">
+          <Label>付款方式</Label>
+          <select className="h-8 rounded-lg border border-input bg-transparent px-2.5 text-sm w-full" value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}>
+            <option value="">不指定</option>
+            <option value="银行转账">银行转账</option>
+            <option value="承兑汇票">承兑汇票</option>
+            <option value="现金">现金</option>
+          </select>
         </div>
       </div>
 
@@ -100,17 +108,12 @@ export default function NewQuotationPage() {
           <div key={idx} className="flex gap-2 items-end border rounded-lg p-3">
             <div className="flex-1 min-w-0">
               <Label className="text-xs">产品</Label>
-              <Select
-                value={row.productId}
-                onValueChange={(v) => { if (v) { updateRow(idx, "productId", v); handlePriceLookup(v, idx); } }}
-              >
-                <SelectTrigger><SelectValue placeholder="选择" /></SelectTrigger>
-                <SelectContent>
-                  {products.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <select className="h-8 rounded-lg border border-input bg-transparent px-2 text-sm w-full" value={row.productId} onChange={(e) => { const v = e.target.value; updateRow(idx, "productId", v); handlePriceLookup(v, idx); }}>
+                <option value="">选择</option>
+                {products.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
             </div>
             <div className="w-24">
               <Label className="text-xs">单价</Label>

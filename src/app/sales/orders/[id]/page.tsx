@@ -47,6 +47,11 @@ export default async function OrderDetailPage({ params }: { params: { id: string
           {order.paymentTerms && <div><span className="text-gray-500">付款条件：</span>{order.paymentTerms}</div>}
           {order.deliveryTerms && <div><span className="text-gray-500">发货条件：</span>{order.deliveryTerms}</div>}
           {order.trackingNumber && <div className="col-span-2"><span className="text-gray-500">物流单号：</span>{order.trackingNumber}</div>}
+          <div><span className="text-gray-500">付款方式：</span>{order.paymentMethod || "-"}</div>
+          <div><span className="text-gray-500">回款状态：</span>{order.paymentStatus || "未回款"}</div>
+          {order.paymentDateStart && order.paymentDateEnd && (
+            <div className="col-span-2"><span className="text-gray-500">账期：</span>{new Date(order.paymentDateStart).toLocaleDateString("zh-CN")} ~ {new Date(order.paymentDateEnd).toLocaleDateString("zh-CN")}</div>
+          )}
           <div className="col-span-2"><span className="text-gray-500">发票：</span>{order.invoiceStatus === "issued" ? `${order.invoiceNo} (${order.invoiceDate ? new Date(order.invoiceDate).toLocaleDateString("zh-CN") : ""})` : "未开票"}</div>
           {order.quotation && <div className="col-span-2"><span className="text-gray-500">来源报价：</span><Link href={`/sales/quotations/${order.quotation.id}`} className="text-blue-600 hover:underline">查看报价单</Link></div>}
         </CardContent>
@@ -54,16 +59,17 @@ export default async function OrderDetailPage({ params }: { params: { id: string
 
       <h3 className="font-semibold">产品明细</h3>
       <Table>
-        <TableHeader><TableRow><TableHead>产品</TableHead><TableHead>数量</TableHead><TableHead>单价</TableHead><TableHead>税率</TableHead><TableHead>小计</TableHead><TableHead>出库批次</TableHead><TableHead>采购成本</TableHead><TableHead>利润(税前)</TableHead></TableRow></TableHeader>
+        <TableHeader><TableRow><TableHead>产品</TableHead><TableHead>数量</TableHead><TableHead>单价</TableHead><TableHead>税率</TableHead><TableHead>小计</TableHead><TableHead>出库批次</TableHead><TableHead>采购成本</TableHead><TableHead>利润(税后)</TableHead></TableRow></TableHeader>
         <TableBody>
           {order.items.map((item: any) => {
             const pps = (item.product as any).purchasePrices || [];
             const pp = pps[0];
             const cost = pp?.price || 0;
             const profit = (item.unitPrice - cost) * item.quantity;
+            const afterTaxProfit = profit / 1.13;
             return (
             <TableRow key={item.id}>
-              <TableCell>{item.product.name}</TableCell><TableCell>{item.quantity}{item.product.unit}</TableCell><TableCell>¥{item.unitPrice.toFixed(2)}</TableCell><TableCell>{item.taxRate}%</TableCell><TableCell>¥{item.subtotal.toFixed(2)}</TableCell><TableCell>{item.batch?.batchNumber || "-"}</TableCell><TableCell className="text-gray-500">¥{cost.toFixed(2)}</TableCell><TableCell className="font-medium text-green-600">¥{profit.toFixed(2)}</TableCell>
+              <TableCell>{item.product.name}</TableCell><TableCell>{item.quantity}{item.product.unit}</TableCell><TableCell>¥{item.unitPrice.toFixed(2)}</TableCell><TableCell>{item.taxRate}%</TableCell><TableCell>¥{item.subtotal.toFixed(2)}</TableCell><TableCell>{item.batch?.batchNumber || "-"}</TableCell><TableCell className="text-gray-500">¥{cost.toFixed(2)}</TableCell><TableCell className="font-medium text-green-600">¥{afterTaxProfit.toFixed(2)}</TableCell>
             </TableRow>
           );})}
         </TableBody>
