@@ -192,6 +192,7 @@ model OrderItem {
   productId String
   batchId   String?
   quantity  Int
+  shippedQuantity Int    @default(0)
   unitPrice Float
   taxRate   Float    @default(13.0)
   subtotal  Float

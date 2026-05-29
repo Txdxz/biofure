@@ -48,10 +48,9 @@ export default function BatchForm({ productId, defaultValues, onSuccess }: Props
     if (data.quantity !== undefined) data.quantity = Number(data.quantity);
     if (data.purchasePrice) data.purchasePrice = Number(data.purchasePrice);
     if (data.purchaseQuantity) data.purchaseQuantity = Number(data.purchaseQuantity);
-    if (!defaultValues?.id) {
-      if (data.status === "ordered") data.quantity = 0;
-      else if (data.status !== "depleted" && data.purchaseQuantity) data.quantity = Number(data.purchaseQuantity);
-    }
+    // 简化逻辑：采购数量直接作为库存量
+    if (data.status === "depleted") data.quantity = 0;
+    else if (data.purchaseQuantity && !data.quantity) data.quantity = data.purchaseQuantity;
     try {
       if (defaultValues?.id) {
         await updateBatch(defaultValues.id, data);
@@ -99,12 +98,9 @@ export default function BatchForm({ productId, defaultValues, onSuccess }: Props
                 <option value="arrived">已到货（入库）</option>
                 <option value="depleted">已耗尽</option>
               </select>
-              </Select>
             </div>
-            <div><Label>有效期 *</Label><Input name="expiryDate" type="date" defaultValue={fmtDate(defaultValues?.expiryDate)} required readOnly={isReadonly} /></div>
+            <div><Label>有效期</Label><Input name="expiryDate" type="date" defaultValue={fmtDate(defaultValues?.expiryDate)} readOnly={isReadonly} /></div>
             <div><Label>下单日期</Label><Input name="orderDate" type="date" defaultValue={fmtDate(defaultValues?.orderDate)} readOnly={isReadonly} /></div>
-            <div><Label>预计到货</Label><Input name="estimatedArrivalDate" type="date" defaultValue={fmtDate(defaultValues?.estimatedArrivalDate)} readOnly={isReadonly} /></div>
-            <div><Label>生产日期</Label><Input name="productionDate" type="date" defaultValue={fmtDate(defaultValues?.productionDate)} readOnly={isReadonly} /></div>
             <div><Label>采购数量</Label><Input name="purchaseQuantity" type="number" defaultValue={defaultValues?.purchaseQuantity || ""} readOnly={isReadonly} /></div>
             <div><Label>采购单价 ¥</Label><Input name="purchasePrice" type="number" step="0.01" defaultValue={defaultValues?.purchasePrice ? String(defaultValues.purchasePrice) : ""} readOnly={isReadonly} /></div>
           </div>

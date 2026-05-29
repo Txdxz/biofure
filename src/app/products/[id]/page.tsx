@@ -33,7 +33,6 @@ export default async function ProductDetailPage({ params }: { params: { id: stri
           <div><span className="text-gray-500">规格/货号：</span>{product.specification || "-"}</div>
           <div><span className="text-gray-500">单位：</span>{product.unit}</div>
           <div><span className="text-gray-500">储存条件：</span>{product.storageCondition || "-"}</div>
-          <div className="col-span-2"><span className="text-gray-500">安全库存：</span>{product.safetyStock}</div>
         </CardContent>
       </Card>
 
@@ -53,7 +52,7 @@ export default async function ProductDetailPage({ params }: { params: { id: stri
         </TableHeader>
         <TableBody>
           {product.batches.map((b: any) => {
-            const pp = product.purchasePrices.find((p: any) => p.supplierId === b.supplierId);
+            const pp = b.price ? { price: b.price } : null;
             return (
             <TableRow key={b.id}>
               <TableCell className="font-mono">{b.batchNumber}</TableCell>

@@ -199,10 +199,13 @@ export async function deleteOrder(id: string) { await prisma.order.delete({ wher
 // ============ 出库 ============
 export async function outboundOrder(orderId: string, trackingNumber: string, batchAssignments: { orderItemId: string; batchId: string; quantity: number }[]) {
   for (const a of batchAssignments) {
-    await prisma.orderItem.update({ where: { id: a.orderItemId }, data: { batchId: a.batchId } });
+    await prisma.orderItem.update({ where: { id: a.orderItemId }, data: { batchId: a.batchId, shippedQuantity: { increment: a.quantity } } });
     await prisma.batch.update({ where: { id: a.batchId }, data: { quantity: { decrement: a.quantity } } });
   }
-  await prisma.order.update({ where: { id: orderId }, data: { status: "shipped", trackingNumber } });
+  // 检查是否所有项都已出完
+  const items = await prisma.orderItem.findMany({ where: { orderId } });
+  const allShipped = items.every(i => i.shippedQuantity >= i.quantity);
+  await prisma.order.update({ where: { id: orderId }, data: { status: allShipped ? "shipped" : "confirmed", trackingNumber } });
   revalidatePath("/sales");
 }
 
