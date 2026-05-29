@@ -79,6 +79,7 @@ export async function createBatch(data: any) {
       orderDate: data.orderDate ? new Date(data.orderDate) : null,
       estimatedArrivalDate: data.estimatedArrivalDate ? new Date(data.estimatedArrivalDate) : null,
       purchaseQuantity: data.purchaseQuantity ? Number(data.purchaseQuantity) : null,
+      price: data.purchasePrice ? Number(data.purchasePrice) : null,
     },
   });
   if (data.purchasePrice && data.supplierId) {
@@ -162,13 +163,17 @@ export async function createOrderFromQuotation(quotationId: string) {
 }
 export async function updateOrderStatus(id: string, status: string) {
   await prisma.order.update({ where: { id }, data: { status } });
-  // 订单完成自动记录财务收入
-  if (status === "completed") {
+  // 发货或完成时自动记录财务收入
+  if (status === "shipped" || status === "completed") {
     const order = await prisma.order.findUnique({ where: { id }, include: { customer: true } });
     if (order) {
-      await prisma.financeRecord.create({
-        data: { type: "income", category: "销售收入", amount: order.totalAmount, description: `${order.customer.fullName} 订单完成`, date: new Date(), orderId: id },
-      });
+      // 避免重复记录
+      const existing = await prisma.financeRecord.findFirst({ where: { orderId: id, type: "income" } });
+      if (!existing) {
+        await prisma.financeRecord.create({
+          data: { type: "income", category: "销售收入", amount: order.totalAmount, description: `${order.customer.fullName} 订单发货`, date: new Date(), orderId: id },
+        });
+      }
     }
   }
   revalidatePath("/sales");

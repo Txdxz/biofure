@@ -13,7 +13,9 @@ interface Props {
 
 export default function Combobox({ name, defaultValue, options, defaults, placeholder }: Props) {
   // Merge: defaults first (always), then DB options, dedup
-  const allOptions = [...new Set([...(defaults || []), ...options])];
+  const merged = [...(defaults || [])];
+  for (let i = 0; i < options.length; i++) { if (!merged.includes(options[i])) merged.push(options[i]); }
+  const allOptions = merged;
 
   const [mode, setMode] = useState<"choose" | "existing" | "custom">(
     defaultValue

@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import Combobox from "@/components/ui/combobox";
 import { createCustomer, updateCustomer, deleteCustomer, getUsedIndustries, getUsedSources } from "@/lib/actions";
@@ -17,6 +16,8 @@ export default function CustomerForm({ defaultValues, onSuccess }: { defaultValu
   const router = useRouter();
 
   useEffect(() => { if (open) { getUsedIndustries().then(setIndustries); getUsedSources().then(setSources); } }, [open]);
+
+  const sel = "h-8 rounded-lg border border-input bg-transparent px-2.5 text-sm w-full";
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault(); setSubmitting(true);
@@ -49,10 +50,11 @@ export default function CustomerForm({ defaultValues, onSuccess }: { defaultValu
             <div className="col-span-2"><Label>公司全称 *</Label><Input name="fullName" defaultValue={defaultValues?.fullName} required /></div>
             <div>
               <Label>类型 *</Label>
-              <Select name="type" defaultValue={defaultValues?.type || "client"}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent><SelectItem value="client">下游客户</SelectItem><SelectItem value="supplier">供应商</SelectItem><SelectItem value="both">两者都是</SelectItem></SelectContent>
-              </Select>
+              <select name="type" className={sel} defaultValue={defaultValues?.type || "客户"}>
+                <option value="客户">下游客户</option>
+                <option value="供应商">供应商</option>
+                <option value="两者都是">两者都是</option>
+              </select>
             </div>
             <div>
               <Label>行业</Label>
@@ -60,17 +62,19 @@ export default function CustomerForm({ defaultValues, onSuccess }: { defaultValu
             </div>
             <div>
               <Label>分级</Label>
-              <Select name="level" defaultValue={defaultValues?.level || "B"}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent><SelectItem value="A">A</SelectItem><SelectItem value="B">B</SelectItem><SelectItem value="C">C</SelectItem></SelectContent>
-              </Select>
+              <select name="level" className={sel} defaultValue={defaultValues?.level || "B"}>
+                <option value="A">A</option>
+                <option value="B">B</option>
+                <option value="C">C</option>
+              </select>
             </div>
             <div>
               <Label>状态</Label>
-              <Select name="status" defaultValue={defaultValues?.status || "active"}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent><SelectItem value="active">活跃</SelectItem><SelectItem value="dormant">休眠</SelectItem><SelectItem value="potential">潜在</SelectItem></SelectContent>
-              </Select>
+              <select name="status" className={sel} defaultValue={defaultValues?.status || "活跃"}>
+                <option value="活跃">活跃</option>
+                <option value="休眠">休眠</option>
+                <option value="潜在">潜在</option>
+              </select>
             </div>
             <div className="col-span-2">
               <Label>来源</Label>

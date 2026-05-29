@@ -25,6 +25,7 @@ export default async function OrderDetailPage({ params }: { params: { id: string
           {order.status === "confirmed" && (
             <Link href={`/sales/outbound?orderId=${order.id}`} className="inline-flex items-center rounded-lg bg-green-600 text-white text-sm font-medium h-8 px-3 hover:bg-green-700">去出库</Link>
           )}
+          {order.status === "shipped" && <OrderStatusButton id={order.id} status="completed" label="标记完成" variant="default" />}
           {order.status !== "completed" && order.status !== "cancelled" && <OrderStatusButton id={order.id} status="cancelled" label="取消" variant="outline" />}
           {order.status === "cancelled" && <DeleteButton id={order.id} type="order" />}
         </div>

@@ -94,13 +94,11 @@ export default function BatchForm({ productId, defaultValues, onSuccess }: Props
             </div>
             <div>
               <Label>状态</Label>
-              <Select name="status" defaultValue={defaultValues?.status || "arrived"} disabled={isReadonly}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ordered">已下单（待到货）</SelectItem>
-                  <SelectItem value="arrived">已到货（入库）</SelectItem>
-                  <SelectItem value="depleted">已耗尽</SelectItem>
-                </SelectContent>
+              <select name="status" className="h-8 rounded-lg border border-input bg-transparent px-2.5 text-sm w-full" defaultValue={defaultValues?.status || "arrived"} disabled={isReadonly}>
+                <option value="ordered">已下单（待到货）</option>
+                <option value="arrived">已到货（入库）</option>
+                <option value="depleted">已耗尽</option>
+              </select>
               </Select>
             </div>
             <div><Label>有效期 *</Label><Input name="expiryDate" type="date" defaultValue={fmtDate(defaultValues?.expiryDate)} required readOnly={isReadonly} /></div>
