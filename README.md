@@ -1,36 +1,64 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 百诺未来业务管理系统 (Biofure ERP)
 
-## Getting Started
+中小型生物试剂分销企业的业务管理平台，覆盖客户管理、产品管理、销售管理、财务管理等核心业务模块。
 
-First, run the development server:
+> 本系统使用 AI 辅助开发（Vibecoding），技术栈 Next.js + PostgreSQL。
+
+---
+
+## 功能概览
+
+| 模块 | 功能 |
+|------|------|
+| **仪表盘** | 月度营收/利润柱状图、产品分类饼图、客户销售额排名、效期预警、可按年月筛选 |
+| **客户管理** | 上下游客户管理、自定义分类、联系人、订单/报价单统一视图、日期筛选 |
+| **产品管理** | 产品分类、批次追踪（批号+效期+采购价）、供应商关联、批次到货自动记支出 |
+| **销售管理** | 报价单生成及打印导出、订单流转（确认→出库→完成）、分批出库、物流追踪、发票管理 |
+| **财务管理** | 收支记录自动关联、发票管理、订单账期/回款状态、逾期变红标记 |
+| **用户管理** | 超管/管理员两级权限、超管可创建管理员 |
+
+## 技术栈
+
+| 层 | 技术 |
+|----|------|
+| 框架 | Next.js 14 (App Router) |
+| 语言 | TypeScript |
+| 数据库 | PostgreSQL（Prisma ORM） |
+| UI | Tailwind CSS + shadcn/ui |
+| 部署 | 阿里云 ECS + Nginx + PM2 |
+
+## 本地开发
 
 ```bash
+git clone https://github.com/Txdxz/biofure.git
+cd biofure
+npm install
+
+# 配置数据库连接（.env）
+echo 'DATABASE_URL="postgresql://user:password@localhost:5432/biofure"' > .env
+npx prisma db push
+
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 部署
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+服务器需要 Node.js 20+、PostgreSQL、Nginx。
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+# 安装依赖并构建
+npm install && npx prisma generate && npm run build
 
-## Learn More
+# PM2 启动
+pm2 start npm --name "biofure" -- start
+```
 
-To learn more about Next.js, take a look at the following resources:
+## 系统架构
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```
+用户 → Nginx(80端口) → Next.js(3000端口) → PostgreSQL
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 许可证
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+私有项目 — 百诺未来（北京）生物技术有限公司
