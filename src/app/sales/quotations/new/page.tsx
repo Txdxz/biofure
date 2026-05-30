@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getCustomersSimple, getProductsSimple, getSellPriceForCustomer, createQuotation } from "@/lib/actions";
 
 export default function NewQuotationPage() {

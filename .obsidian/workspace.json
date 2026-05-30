@@ -4,21 +4,17 @@
     "type": "split",
     "children": [
       {
-        "id": "2993219d30ada150",
+        "id": "157e439685413dc1",
         "type": "tabs",
         "children": [
           {
-            "id": "fc807f5d1c97a117",
+            "id": "4ec00deac59b47f1",
             "type": "leaf",
             "state": {
-              "type": "markdown",
-              "state": {
-                "file": "docs/superpowers/specs/2026-05-27-biofure-erp-design.md",
-                "mode": "source",
-                "source": false
-              },
+              "type": "empty",
+              "state": {},
               "icon": "lucide-file",
-              "title": "2026-05-27-biofure-erp-design"
+              "title": "新标签页"
             }
           }
         ]
@@ -180,10 +176,10 @@
       "bases:新建数据库": false
     }
   },
-  "active": "fc807f5d1c97a117",
+  "active": "4ec00deac59b47f1",
   "lastOpenFiles": [
-    "未命名.md",
     "docs/superpowers/specs/2026-05-27-biofure-erp-design.md",
+    "未命名.md",
     "g",
     "git 管理",
     "docs/superpowers/plans/2026-05-27-biofure-erp-plan.md",
