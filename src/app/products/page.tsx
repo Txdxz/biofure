@@ -3,12 +3,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import ProductForm from "@/components/product-form";
+import Pagination from "@/components/ui/pagination";
 import Link from "next/link";
 
-export default async function ProductsPage({ searchParams }: { searchParams: { search?: string; category?: string } }) {
+export default async function ProductsPage({ searchParams }: { searchParams: { search?: string; category?: string; page?: string } }) {
   const search = searchParams.search || "";
   const category = searchParams.category || "";
-  const products = await getProducts(search, category);
+  const page = Number(searchParams.page) || 1;
+  const { items: products, total } = await getProducts(search, category, page, 20);
 
   return (
     <div className="space-y-4">
@@ -67,6 +69,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: { s
           )}
         </TableBody>
       </Table>
+      <Pagination total={total} page={page} basePath="/products" />
     </div>
   );
 }

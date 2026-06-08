@@ -4,22 +4,24 @@ import { prisma } from "./prisma";
 import { revalidatePath } from "next/cache";
 
 // ============ 客户 ============
-export async function getCustomers(search?: string, type?: string, level?: string, status?: string) {
+export async function getCustomers(search?: string, type?: string, level?: string, status?: string, page: number = 1, pageSize: number = 20) {
   const where: any = {};
   if (search) { where.OR = [{ fullName: { contains: search } }, { shortName: { contains: search } }]; }
   if (type && type !== "all") where.type = type;
   if (level && level !== "all") where.level = level;
   if (status && status !== "all") where.status = status;
-  return prisma.customer.findMany({ where, include: { contacts: true }, orderBy: { createdAt: "desc" } });
+  const total = await prisma.customer.count({ where });
+  const items = await prisma.customer.findMany({ where, include: { contacts: true }, orderBy: { createdAt: "desc" }, skip: (page - 1) * pageSize, take: pageSize });
+  return { items, total, page, pageSize };
 }
 export async function getCustomer(id: string) {
-  return prisma.customer.findUnique({ where: { id }, include: { contacts: true, orders: true, quotations: true } });
+  return prisma.customer.findUnique({ where: { id }, include: { contacts: true, orders: true } });
 }
 export async function createCustomer(data: any) { await prisma.customer.create({ data }); revalidatePath("/customers"); }
 export async function updateCustomer(id: string, data: any) { await prisma.customer.update({ where: { id }, data }); revalidatePath(`/customers/${id}`); }
 export async function deleteCustomer(id: string) {
-  const refs = await prisma.customer.findUnique({ where: { id }, include: { _count: { select: { orders: true, quotations: true } } } });
-  if (refs && (refs._count.orders > 0 || refs._count.quotations > 0)) throw new Error("有关联数据，无法删除");
+  const refs = await prisma.customer.findUnique({ where: { id }, include: { _count: { select: { orders: true } } } });
+  if (refs && refs._count.orders > 0) throw new Error("有关联数据，无法删除");
   await prisma.customer.delete({ where: { id } }); revalidatePath("/customers");
 }
 export async function getUsedIndustries() {
@@ -51,11 +53,13 @@ export async function deleteContact(id: string) {
 }
 
 // ============ 产品 ============
-export async function getProducts(search?: string, category?: string) {
+export async function getProducts(search?: string, category?: string, page: number = 1, pageSize: number = 20) {
   const where: any = {};
   if (search) { where.OR = [{ name: { contains: search } }, { nameEn: { contains: search } }, { specification: { contains: search } }]; }
   if (category && category !== "all") where.category = category;
-  return prisma.product.findMany({ include: { batches: true }, orderBy: { createdAt: "desc" }, where });
+  const total = await prisma.product.count({ where });
+  const items = await prisma.product.findMany({ include: { batches: true }, orderBy: { createdAt: "desc" }, where, skip: (page - 1) * pageSize, take: pageSize });
+  return { items, total, page, pageSize };
 }
 export async function getProduct(id: string) {
   return prisma.product.findUnique({ where: { id }, include: { batches: { include: { supplier: true }, orderBy: { expiryDate: "asc" } }, productFiles: true, purchasePrices: { include: { supplier: true } }, sellPrices: { include: { customer: true } } } });
@@ -63,8 +67,8 @@ export async function getProduct(id: string) {
 export async function createProduct(data: any) { await prisma.product.create({ data }); revalidatePath("/products"); }
 export async function updateProduct(id: string, data: any) { await prisma.product.update({ where: { id }, data }); revalidatePath(`/products/${id}`); }
 export async function deleteProduct(id: string) {
-  const refs = await prisma.product.findUnique({ where: { id }, include: { _count: { select: { orderItems: true, quotationItems: true } } } });
-  if (refs && (refs._count.orderItems > 0 || refs._count.quotationItems > 0)) throw new Error("有关联数据，无法删除");
+  const refs = await prisma.product.findUnique({ where: { id }, include: { _count: { select: { orderItems: true } } } });
+  if (refs && refs._count.orderItems > 0) throw new Error("有关联数据，无法删除");
   await prisma.product.delete({ where: { id } }); revalidatePath("/products");
 }
 
@@ -116,7 +120,12 @@ export async function updateBatch(id: string, data: any) {
   revalidatePath(`/products/${b.productId}`);
 }
 export async function deleteBatch(id: string) {
+  // 清除订单引用
+  await prisma.orderItem.updateMany({ where: { batchId: id }, data: { batchId: null, shippedQuantity: 0 } });
   const b = await prisma.batch.delete({ where: { id } }); revalidatePath(`/products/${b.productId}`);
+}
+export async function checkBatchOutbound(id: string) {
+  return prisma.orderItem.findFirst({ where: { batchId: id }, select: { id: true } });
 }
 
 // ============ 价格 ============
@@ -127,44 +136,29 @@ export async function getSellPriceForCustomer(productId: string, customerId: str
   return std?.price || 0;
 }
 
-// ============ 报价 ============
-export async function getQuotations() {
-  return prisma.quotation.findMany({ include: { customer: true, items: { include: { product: true } } }, orderBy: { createdAt: "desc" } });
-}
-export async function getQuotation(id: string) {
-  return prisma.quotation.findUnique({ where: { id }, include: { customer: true, items: { include: { product: true } }, orders: true } });
-}
-export async function createQuotation(data: any) {
-  const total = data.items.reduce((s: number, i: any) => s + i.quantity * i.unitPrice, 0);
-  const q = await prisma.quotation.create({ data: { customerId: data.customerId, validTo: new Date(data.validTo), remark: data.remark, paymentMethod: data.paymentMethod || null, totalAmount: total, items: { create: data.items.map((i: any) => ({ productId: i.productId, quantity: i.quantity, unitPrice: i.unitPrice, subtotal: i.quantity * i.unitPrice })) } } });
-  for (const item of data.items) {
-    const existing = await prisma.sellPrice.findFirst({ where: { productId: item.productId, customerId: data.customerId } });
-    if (existing) await prisma.sellPrice.update({ where: { id: existing.id }, data: { price: item.unitPrice, validFrom: new Date() } });
-    else await prisma.sellPrice.create({ data: { productId: item.productId, customerId: data.customerId, price: item.unitPrice } });
-  }
-  revalidatePath("/sales"); return q;
-}
-export async function updateQuotationStatus(id: string, status: string) { await prisma.quotation.update({ where: { id }, data: { status } }); revalidatePath("/sales"); }
-export async function deleteQuotation(id: string) { await prisma.quotation.delete({ where: { id } }); revalidatePath("/sales"); }
-
 // ============ 订单 ============
-export async function getOrders() {
-  return prisma.order.findMany({ include: { customer: true, items: { include: { product: true } } }, orderBy: { createdAt: "desc" } });
+export async function getOrders(search?: string, page: number = 1, pageSize: number = 20) {
+  const where: any = {};
+  if (search) where.customer = { fullName: { contains: search } };
+  const total = await prisma.order.count({ where });
+  const items = await prisma.order.findMany({ where, include: { customer: true, items: { include: { product: true } } }, orderBy: { createdAt: "desc" }, skip: (page - 1) * pageSize, take: pageSize });
+  return { items, total, page, pageSize };
 }
 export async function getOrder(id: string) {
-  return prisma.order.findUnique({ where: { id }, include: { customer: true, quotation: { include: { items: { include: { product: true } } } }, items: { include: { product: { include: { purchasePrices: true } }, batch: true } }, afterSales: { orderBy: { createdAt: "desc" } } } });
-}
-export async function createOrderFromQuotation(quotationId: string) {
-  const q = await prisma.quotation.findUnique({ where: { id: quotationId }, include: { items: true, customer: true } });
-  if (!q) throw new Error("报价单不存在");
-  const order = await prisma.order.create({ data: { customerId: q.customerId, quotationId: q.id, totalAmount: q.totalAmount, receivableAmount: q.totalAmount, paymentMethod: q.paymentMethod || undefined, paymentStatus: "未回款", items: { create: q.items.map(i => ({ productId: i.productId, quantity: i.quantity, unitPrice: i.unitPrice, subtotal: i.subtotal, taxRate: 13.0 })) } } });
-  await prisma.quotation.update({ where: { id: quotationId }, data: { status: "converted" } });
-  // 转订单自动生成财务收入
-  await prisma.financeRecord.create({ data: { type: "income", category: "销售收入", amount: q.totalAmount, description: `${q.customer.fullName} 转订单`, date: new Date(), orderId: order.id } });
-  revalidatePath("/sales"); return order;
+  return prisma.order.findUnique({ where: { id }, include: { customer: true, items: { include: { product: { include: { purchasePrices: true } }, batch: true } }, afterSales: { orderBy: { createdAt: "desc" } } } });
 }
 export async function updateOrderStatus(id: string, status: string) {
   await prisma.order.update({ where: { id }, data: { status } });
+  // 取消订单 → 退回库存
+  if (status === "cancelled") {
+    const items = await prisma.orderItem.findMany({ where: { orderId: id } });
+    for (const item of items) {
+      if (item.shippedQuantity > 0 && item.batchId) {
+        await prisma.batch.update({ where: { id: item.batchId! }, data: { quantity: { increment: item.shippedQuantity } } });
+      }
+      await prisma.orderItem.update({ where: { id: item.id }, data: { shippedQuantity: 0, batchId: null } });
+    }
+  }
   // 发货或完成时自动记录财务收入
   if (status === "shipped" || status === "completed") {
     const order = await prisma.order.findUnique({ where: { id }, include: { customer: true } });

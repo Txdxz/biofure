@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import OrderStatusButton from "./status-button";
-import DeleteButton from "../../quotations/[id]/delete-button";
+import DeleteButton from "./delete-button";
 import OrderEditForm from "./edit-form";
 import AfterSaleSection from "./aftersale";
 
@@ -27,7 +27,7 @@ export default async function OrderDetailPage({ params }: { params: { id: string
           )}
           {order.status === "shipped" && <OrderStatusButton id={order.id} status="completed" label="标记完成" variant="default" />}
           {order.status !== "completed" && order.status !== "cancelled" && <OrderStatusButton id={order.id} status="cancelled" label="取消" variant="outline" />}
-          {order.status === "cancelled" && <DeleteButton id={order.id} type="order" />}
+          {order.status === "cancelled" && <DeleteButton id={order.id} />}
         </div>
       </div>
 
@@ -53,7 +53,6 @@ export default async function OrderDetailPage({ params }: { params: { id: string
             <div className="col-span-2"><span className="text-gray-500">账期：</span>{new Date(order.paymentDateStart).toLocaleDateString("zh-CN")} ~ {new Date(order.paymentDateEnd).toLocaleDateString("zh-CN")}</div>
           )}
           <div className="col-span-2"><span className="text-gray-500">发票：</span>{order.invoiceStatus === "issued" ? `${order.invoiceNo} (${order.invoiceDate ? new Date(order.invoiceDate).toLocaleDateString("zh-CN") : ""})` : "未开票"}</div>
-          {order.quotation && <div className="col-span-2"><span className="text-gray-500">来源报价：</span><Link href={`/sales/quotations/${order.quotation.id}`} className="text-blue-600 hover:underline">查看报价单</Link></div>}
         </CardContent>
       </Card>
 
@@ -62,9 +61,10 @@ export default async function OrderDetailPage({ params }: { params: { id: string
         <TableHeader><TableRow><TableHead>产品</TableHead><TableHead>数量</TableHead><TableHead>单价</TableHead><TableHead>税率</TableHead><TableHead>小计</TableHead><TableHead>出库批次</TableHead><TableHead>采购成本</TableHead><TableHead>利润(税后)</TableHead></TableRow></TableHeader>
         <TableBody>
           {order.items.map((item: any) => {
+            const batchCost = item.batch?.price;
             const pps = (item.product as any).purchasePrices || [];
             const pp = pps[0];
-            const cost = pp?.price || 0;
+            const cost = batchCost ?? pp?.price ?? 0;
             const profit = (item.unitPrice - cost) * item.quantity;
             const afterTaxProfit = profit / 1.13;
             return (

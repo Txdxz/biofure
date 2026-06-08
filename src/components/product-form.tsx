@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import Combobox from "@/components/ui/combobox";
 import { createProduct, updateProduct, deleteProduct, getUsedCategories } from "@/lib/actions";
@@ -60,10 +59,7 @@ export default function ProductForm({ defaultValues, onSuccess }: { defaultValue
             </div>
             <div>
               <Label>单位</Label>
-              <Select name="unit" defaultValue={defaultValues?.unit || "支"}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent><SelectItem value="支">支</SelectItem><SelectItem value="瓶">瓶</SelectItem><SelectItem value="盒">盒</SelectItem><SelectItem value="套">套</SelectItem><SelectItem value="mg">mg</SelectItem><SelectItem value="g">g</SelectItem></SelectContent>
-              </Select>
+              <Combobox name="unit" defaultValue={defaultValues?.unit} defaults={["支","瓶","盒","套","包","箱","件","mg","g"]} options={[]} placeholder="选择或输入单位" />
             </div>
             <div>
               <Label>储存条件</Label>

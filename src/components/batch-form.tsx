@@ -20,7 +20,7 @@ export default function BatchForm({ productId, defaultValues, onSuccess }: Props
   const [supplierId, setSupplierId] = useState(defaultValues?.supplierId || "");
   const router = useRouter();
 
-  const isReadonly = defaultValues && (defaultValues.status === "arrived" || defaultValues.status === "depleted");
+  const isReadonly = defaultValues && defaultValues.status === "depleted";
   const triggerLabel = defaultValues ? (isReadonly ? "查看" : "编辑") : "新增批次";
 
   useEffect(() => {
@@ -64,6 +64,11 @@ export default function BatchForm({ productId, defaultValues, onSuccess }: Props
 
   async function handleDelete() {
     if (!confirm("确定删除？")) return;
+    // 检查是否已出库
+    const orderItem = await import("@/lib/actions").then(m => m.checkBatchOutbound(defaultValues.id));
+    if (orderItem) {
+      if (!confirm("此批次已出库，删除后订单中的批次关联将丢失，是否继续？")) return;
+    }
     await deleteBatch(defaultValues.id); setOpen(false); router.refresh();
   }
 
@@ -105,7 +110,7 @@ export default function BatchForm({ productId, defaultValues, onSuccess }: Props
             {!isReadonly && (
               <button type="button" onClick={doSave} className="flex-1 inline-flex items-center justify-center rounded-lg bg-primary text-primary-foreground text-sm font-medium h-8 hover:bg-primary/80 disabled:opacity-50" disabled={submitting}>{submitting ? "保存中..." : "保存"}</button>
             )}
-            {defaultValues?.id && !isReadonly && (
+            {defaultValues?.id && (
               <button type="button" onClick={handleDelete} className="inline-flex items-center justify-center rounded-lg border border-red-300 text-red-600 text-sm font-medium h-8 px-3 hover:bg-red-50">删除</button>
             )}
           </div>

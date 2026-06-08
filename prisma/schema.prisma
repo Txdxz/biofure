@@ -28,7 +28,6 @@ model Customer {
   contacts       Contact[]
   purchasePrices PurchasePrice[]
   sellPrices     SellPrice[]
-  quotations     Quotation[]
   orders         Order[]
   batches        Batch[]
 }
@@ -64,7 +63,6 @@ model Product {
   productFiles   ProductFile[]
   purchasePrices PurchasePrice[]
   sellPrices     SellPrice[]
-  quotationItems QuotationItem[]
   orderItems     OrderItem[]
 }
 
@@ -131,37 +129,9 @@ model SellPrice {
 
 // ========== 销售模块 ==========
 
-model Quotation {
-  id          String   @id @default(cuid())
-  customerId  String
-  date        DateTime @default(now())
-  validTo     DateTime
-  status      String   @default("draft")
-  totalAmount Float    @default(0)
-  remark      String?
-  paymentMethod String?                            // 付款方式
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  customer    Customer @relation(fields: [customerId], references: [id])
-  items       QuotationItem[]
-  orders      Order[]
-}
-
-model QuotationItem {
-  id          String    @id @default(cuid())
-  quotationId String
-  productId   String
-  quantity    Int
-  unitPrice   Float
-  subtotal    Float
-  quotation   Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
-  product     Product   @relation(fields: [productId], references: [id])
-}
-
 model Order {
   id                String     @id @default(cuid())
   customerId        String
-  quotationId       String?
   contractNo        String?                              // 合同编号（合并自Contract）
   contractFilePath  String?                              // 合同附件
   contractStartDate DateTime?
@@ -185,7 +155,6 @@ model Order {
   createdAt         DateTime   @default(now())
   updatedAt         DateTime   @updatedAt
   customer          Customer   @relation(fields: [customerId], references: [id])
-  quotation         Quotation? @relation(fields: [quotationId], references: [id])
   items             OrderItem[]
   afterSales        AfterSale[]
 }

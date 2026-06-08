@@ -1,15 +1,14 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { deleteQuotation, deleteOrder } from "@/lib/actions";
+import { deleteOrder } from "@/lib/actions";
 
-export default function DeleteButton({ id, type }: { id: string; type: "quotation" | "order" }) {
+export default function DeleteButton({ id }: { id: string }) {
   const router = useRouter();
 
   async function handleDelete() {
     if (!confirm("确定删除吗？")) return;
-    if (type === "quotation") await deleteQuotation(id);
-    else await deleteOrder(id);
+    await deleteOrder(id);
     router.push("/sales");
     router.refresh();
   }

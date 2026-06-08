@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import CustomerForm from "@/components/customer-form";
+import Pagination from "@/components/ui/pagination";
 import Link from "next/link";
 
 const typeMap: Record<string, string> = { client: "客户", supplier: "供应商", both: "两者" };
@@ -17,13 +18,14 @@ const levelColors: Record<string, string> = {
 export default async function CustomersPage({
   searchParams,
 }: {
-  searchParams: { search?: string; type?: string; level?: string; status?: string };
+  searchParams: { search?: string; type?: string; level?: string; status?: string; page?: string };
 }) {
   const search = searchParams.search || "";
   const type = searchParams.type || "";
   const level = searchParams.level || "";
   const status = searchParams.status || "";
-  const customers = await getCustomers(search, type, level, status);
+  const page = Number(searchParams.page) || 1;
+  const { items: customers, total } = await getCustomers(search, type, level, status, page, 20);
 
   return (
     <div className="space-y-4">
@@ -117,6 +119,7 @@ export default async function CustomersPage({
           )}
         </TableBody>
       </Table>
+      <Pagination total={total} page={page} basePath="/customers" />
     </div>
   );
 }

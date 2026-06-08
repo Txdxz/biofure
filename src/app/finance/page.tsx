@@ -58,7 +58,7 @@ export default function FinancePage() {
 
   async function loadOrders() {
     const os = await getOrders();
-    setOrders(os.filter((o: any) => o.status === "shipped" || o.status === "completed" || o.status === "cancelled"));
+    setOrders(os.items.filter((o: any) => o.status === "shipped" || o.status === "completed" || o.status === "cancelled"));
   }
 
   async function handleAdd(e: React.FormEvent) {
