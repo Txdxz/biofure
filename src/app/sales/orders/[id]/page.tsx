@@ -22,9 +22,7 @@ export default async function OrderDetailPage({ params }: { params: { id: string
         <h2 className="text-2xl font-bold">订单详情 {order.contractNo ? `- ${order.contractNo}` : ""}</h2>
         <div className="flex gap-2">
           {order.status === "pending" && <OrderStatusButton id={order.id} status="confirmed" label="确认订单" variant="default" />}
-          {order.status === "confirmed" && (
-            <Link href={`/sales/outbound?orderId=${order.id}`} className="inline-flex items-center rounded-lg bg-green-600 text-white text-sm font-medium h-8 px-3 hover:bg-green-700">去出库</Link>
-          )}
+          {order.status === "confirmed" && <Link href={`/sales/outbound?orderId=${order.id}`} className="inline-flex items-center rounded-lg bg-green-600 text-white text-sm font-medium h-8 px-3 hover:bg-green-700">去出库</Link>}
           {order.status === "shipped" && <OrderStatusButton id={order.id} status="completed" label="标记完成" variant="default" />}
           {order.status !== "completed" && order.status !== "cancelled" && <OrderStatusButton id={order.id} status="cancelled" label="取消" variant="outline" />}
           {order.status === "cancelled" && <DeleteButton id={order.id} />}
@@ -39,19 +37,9 @@ export default async function OrderDetailPage({ params }: { params: { id: string
           <div><span className="text-gray-500">状态：</span><Badge variant="outline">{statusMap[order.status]}</Badge></div>
           <div><span className="text-gray-500">日期：</span>{new Date(order.date).toLocaleDateString("zh-CN")}</div>
           <div><span className="text-gray-500">合同编号：</span>{order.contractNo || "-"}</div>
-          <div><span className="text-gray-500">合同期限：</span>{order.contractStartDate ? new Date(order.contractStartDate).toLocaleDateString("zh-CN") : "-"} ~ {order.contractEndDate ? new Date(order.contractEndDate).toLocaleDateString("zh-CN") : "-"}</div>
           <div><span className="text-gray-500">总金额：</span>¥{order.totalAmount.toFixed(2)}</div>
-          <div><span className="text-gray-500">应收：</span>¥{order.receivableAmount.toFixed(2)}</div>
-          <div><span className="text-gray-500">已收：</span>¥{order.receivedAmount.toFixed(2)}</div>
-          {order.paymentMethod && <div><span className="text-gray-500">付款方式：</span>{order.paymentMethod}</div>}
-          {order.paymentTerms && <div><span className="text-gray-500">付款条件：</span>{order.paymentTerms}</div>}
-          {order.deliveryTerms && <div><span className="text-gray-500">发货条件：</span>{order.deliveryTerms}</div>}
-          {order.trackingNumber && <div className="col-span-2"><span className="text-gray-500">物流单号：</span>{order.trackingNumber}</div>}
           <div><span className="text-gray-500">付款方式：</span>{order.paymentMethod || "-"}</div>
-          <div><span className="text-gray-500">回款状态：</span>{order.paymentStatus || "未回款"}</div>
-          {order.paymentDateStart && order.paymentDateEnd && (
-            <div className="col-span-2"><span className="text-gray-500">账期：</span>{new Date(order.paymentDateStart).toLocaleDateString("zh-CN")} ~ {new Date(order.paymentDateEnd).toLocaleDateString("zh-CN")}</div>
-          )}
+          {order.trackingNumber && <div className="col-span-2"><span className="text-gray-500">物流单号：</span>{order.trackingNumber}</div>}
           <div className="col-span-2"><span className="text-gray-500">发票：</span>{order.invoiceStatus === "issued" ? `${order.invoiceNo} (${order.invoiceDate ? new Date(order.invoiceDate).toLocaleDateString("zh-CN") : ""})` : "未开票"}</div>
         </CardContent>
       </Card>

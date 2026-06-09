@@ -37,7 +37,7 @@ export default async function SalesPage({ searchParams }: { searchParams: { sear
               <TableRow><TableHead>客户</TableHead><TableHead>日期</TableHead><TableHead>产品</TableHead><TableHead>金额</TableHead><TableHead>应收/已收</TableHead><TableHead>状态</TableHead><TableHead>付款方式</TableHead><TableHead>回款状态</TableHead><TableHead>账期</TableHead><TableHead>出库/物流</TableHead><TableHead>发票</TableHead><TableHead>操作</TableHead></TableRow>
             </TableHeader>
             <TableBody>
-              {orders.map((o) => {
+              {orders.map((o: any) => {
                 const today = new Date();
                 const endDate = o.paymentDateEnd ? new Date(o.paymentDateEnd) : null;
                 const overdue = endDate && today > endDate && o.paymentStatus !== "已回款";

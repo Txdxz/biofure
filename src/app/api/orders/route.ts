@@ -15,7 +15,6 @@ export async function POST(request: NextRequest) {
     data: {
       customerId,
       paymentMethod: paymentMethod || null,
-      paymentStatus: "未回款",
       totalAmount,
       receivableAmount: totalAmount,
       items: {

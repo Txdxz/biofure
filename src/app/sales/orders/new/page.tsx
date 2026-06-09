@@ -1,11 +1,54 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getCustomersSimple, getProductsSimple, getSellPriceForCustomer } from "@/lib/actions";
+
+function SearchSelect({ options, value, onChange, placeholder }: { options: { id: string; name: string }[]; value: string; onChange: (id: string) => void; placeholder: string }) {
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const selected = options.find(o => o.id === value);
+
+  const filtered = options.filter(o => o.name.includes(query));
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  return (
+    <div ref={ref} className="relative">
+      <Input
+        value={open ? query : (selected?.name || "")}
+        onChange={(e) => { setQuery(e.target.value); setOpen(true); if (!e.target.value) onChange(""); }}
+        onFocus={() => { setQuery(""); setOpen(true); }}
+        placeholder={placeholder}
+        className="w-full"
+      />
+      {open && (
+        <div className="absolute z-50 top-full mt-1 left-0 right-0 bg-white border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+          {filtered.length === 0 && <div className="px-3 py-2 text-sm text-gray-400">无匹配</div>}
+          {filtered.map((o) => (
+            <div
+              key={o.id}
+              className={`px-3 py-2 text-sm cursor-pointer hover:bg-gray-100 ${o.id === value ? "bg-gray-50 font-medium" : ""}`}
+              onMouseDown={() => { onChange(o.id); setOpen(false); setQuery(""); }}
+            >
+              {o.name}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function NewOrderPage() {
   const [customers, setCustomers] = useState<any[]>([]);
@@ -17,7 +60,7 @@ export default function NewOrderPage() {
   const router = useRouter();
 
   useEffect(() => {
-    getCustomersSimple().then(setCustomers);
+    getCustomersSimple().then(cs => setCustomers(cs.filter((c: any) => c.type !== "supplier")));
     getProductsSimple().then(setProducts);
   }, []);
 
@@ -49,20 +92,15 @@ export default function NewOrderPage() {
     finally { setSubmitting(false); }
   }
 
-  const clientCustomers = customers.filter((c) => c.type !== "supplier");
-
   return (
     <div className="space-y-6">
       <Link href="/sales" className="text-sm text-gray-500 hover:underline">← 返回销售管理</Link>
       <h2 className="text-2xl font-bold">新建订单</h2>
 
       <div className="space-y-4 max-w-3xl">
-        <div className="w-64">
+        <div className="w-72">
           <Label>客户 *</Label>
-          <select className="h-8 rounded-lg border border-input bg-transparent px-2.5 text-sm w-full" value={customerId} onChange={(e) => setCustomerId(e.target.value)}>
-            <option value="">选择客户</option>
-            {clientCustomers.map((c) => (<option key={c.id} value={c.id}>{c.fullName}</option>))}
-          </select>
+          <SearchSelect options={customers} value={customerId} onChange={setCustomerId} placeholder="搜索或选择客户..." />
         </div>
         <div className="w-48">
           <Label>付款方式</Label>
@@ -85,10 +123,7 @@ export default function NewOrderPage() {
           <div key={idx} className="flex gap-2 items-end border rounded-lg p-3">
             <div className="flex-1 min-w-0">
               <Label className="text-xs">产品</Label>
-              <select className="h-8 rounded-lg border border-input bg-transparent px-2 text-sm w-full" value={row.productId} onChange={(e) => { const v = e.target.value; updateRow(idx, "productId", v); handlePriceLookup(v, idx); }}>
-                <option value="">选择</option>
-                {products.map((p) => (<option key={p.id} value={p.id}>{p.name}</option>))}
-              </select>
+              <SearchSelect options={products} value={row.productId} onChange={(v) => { updateRow(idx, "productId", v); handlePriceLookup(v, idx); }} placeholder="搜索或选择产品..." />
             </div>
             <div className="w-24"><Label className="text-xs">单价</Label><Input type="number" step="0.01" value={row.unitPrice || ""} onChange={(e) => updateRow(idx, "unitPrice", Number(e.target.value))} /></div>
             <div className="w-20"><Label className="text-xs">数量</Label><Input type="number" value={row.quantity || ""} onChange={(e) => updateRow(idx, "quantity", Number(e.target.value))} min={1} /></div>
@@ -99,7 +134,8 @@ export default function NewOrderPage() {
         {rows.length > 0 && <div className="text-right text-lg font-bold">总计：¥{total.toFixed(2)}</div>}
       </div>
 
-      <button onClick={handleSubmit} disabled={submitting || !customerId || rows.filter(r => r.productId).length === 0} className="inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent bg-primary text-primary-foreground text-sm font-medium h-9 px-6 hover:bg-primary/80 disabled:opacity-50">
+      <button onClick={handleSubmit} disabled={submitting || !customerId || rows.filter(r => r.productId).length === 0}
+        className="inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent bg-primary text-primary-foreground text-sm font-medium h-9 px-6 hover:bg-primary/80 disabled:opacity-50">
         {submitting ? "提交中..." : "创建订单"}
       </button>
     </div>
