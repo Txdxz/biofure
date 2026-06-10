@@ -7,13 +7,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getCustomersSimple, getProductsSimple, getSellPriceForCustomer } from "@/lib/actions";
 
-function SearchSelect({ options, value, onChange, placeholder }: { options: { id: string; name: string }[]; value: string; onChange: (id: string) => void; placeholder: string }) {
+function SearchSelect({ options, value, onChange, placeholder, displayKey = "name" }: { options: { id: string; name?: string; fullName?: string }[]; value: string; onChange: (id: string) => void; placeholder: string; displayKey?: string }) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const selected = options.find(o => o.id === value);
 
-  const filtered = options.filter(o => o.name.includes(query));
+  const filtered = options.filter(o => (o.name || o.fullName || "").includes(query));
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -26,7 +26,7 @@ function SearchSelect({ options, value, onChange, placeholder }: { options: { id
   return (
     <div ref={ref} className="relative">
       <Input
-        value={open ? query : (selected?.name || "")}
+        value={open ? query : (selected?.name || selected?.fullName || "")}
         onChange={(e) => { setQuery(e.target.value); setOpen(true); if (!e.target.value) onChange(""); }}
         onFocus={() => { setQuery(""); setOpen(true); }}
         placeholder={placeholder}
@@ -41,7 +41,7 @@ function SearchSelect({ options, value, onChange, placeholder }: { options: { id
               className={`px-3 py-2 text-sm cursor-pointer hover:bg-gray-100 ${o.id === value ? "bg-gray-50 font-medium" : ""}`}
               onMouseDown={() => { onChange(o.id); setOpen(false); setQuery(""); }}
             >
-              {o.name}
+              {o.name || o.fullName}
             </div>
           ))}
         </div>

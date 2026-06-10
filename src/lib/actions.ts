@@ -264,11 +264,12 @@ export async function getFinanceRecords(month?: number, year?: number, orderFilt
 }
 
 export async function createFinanceRecord(data: any) {
-  await prisma.financeRecord.create({ data: { ...data, amount: Number(data.amount) } });
+  await prisma.financeRecord.create({ data: { ...data, date: new Date(data.date), amount: Number(data.amount) } });
   revalidatePath("/finance");
 }
 export async function updateFinanceRecord(id: string, data: any) {
   if (data.amount) data.amount = Number(data.amount);
+  if (data.date) data.date = new Date(data.date);
   await prisma.financeRecord.update({ where: { id }, data });
   revalidatePath("/finance");
 }
