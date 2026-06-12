@@ -48,6 +48,14 @@ export default function BatchForm({ productId, defaultValues, onSuccess }: Props
     if (data.quantity !== undefined) data.quantity = Number(data.quantity);
     if (data.purchasePrice) data.purchasePrice = Number(data.purchasePrice);
     if (data.purchaseQuantity) data.purchaseQuantity = Number(data.purchaseQuantity);
+    
+    // 校验：采购数量必填
+    if (!data.purchaseQuantity || data.purchaseQuantity <= 0) {
+      alert("采购数量必须大于0");
+      setSubmitting(false);
+      return;
+    }
+    
     // 简化逻辑：采购数量直接作为库存量
     if (data.status === "depleted") data.quantity = 0;
     else if (data.purchaseQuantity && !data.quantity) data.quantity = data.purchaseQuantity;
@@ -86,12 +94,12 @@ export default function BatchForm({ productId, defaultValues, onSuccess }: Props
           <div className="grid grid-cols-2 gap-4">
             <div><Label>批号 *</Label><Input name="batchNumber" defaultValue={defaultValues?.batchNumber} required readOnly={isReadonly} /></div>
             <div>
-              <Label>供应商</Label>
+              <Label>供应商 *</Label>
               <SearchSelect options={customers} value={supplierId} onChange={setSupplierId} placeholder="搜索或选择供应商..." displayKey="fullName" disabled={isReadonly} />
             </div>
             <div>
-              <Label>状态</Label>
-              <select name="status" className="h-8 rounded-lg border border-input bg-transparent px-2.5 text-sm w-full" defaultValue={defaultValues?.status || "arrived"} disabled={isReadonly}>
+              <Label>状态 *</Label>
+              <select name="status" className="h-8 rounded-lg border border-input bg-transparent px-2.5 text-sm w-full" defaultValue={defaultValues?.status || "arrived"} disabled={isReadonly} required={!isReadonly}>
                 <option value="ordered">已下单（待到货）</option>
                 <option value="arrived">已到货（入库）</option>
                 <option value="depleted">已耗尽</option>
@@ -99,8 +107,8 @@ export default function BatchForm({ productId, defaultValues, onSuccess }: Props
             </div>
             <div><Label>有效期</Label><Input name="expiryDate" type="date" defaultValue={fmtDate(defaultValues?.expiryDate)} readOnly={isReadonly} /></div>
             <div><Label>下单日期</Label><Input name="orderDate" type="date" defaultValue={fmtDate(defaultValues?.orderDate)} readOnly={isReadonly} /></div>
-            <div><Label>采购数量</Label><Input name="purchaseQuantity" type="number" defaultValue={defaultValues?.purchaseQuantity || ""} readOnly={isReadonly} /></div>
-            <div><Label>采购单价 ¥</Label><Input name="purchasePrice" type="number" step="0.01" defaultValue={defaultValues?.purchasePrice ? String(defaultValues.purchasePrice) : ""} readOnly={isReadonly} /></div>
+            <div><Label>采购数量 *</Label><Input name="purchaseQuantity" type="number" defaultValue={defaultValues?.purchaseQuantity || ""} readOnly={isReadonly} required={!isReadonly} min="1" /></div>
+            <div><Label>采购单价 ¥ *</Label><Input name="purchasePrice" type="number" defaultValue={defaultValues?.purchasePrice ? String(defaultValues.purchasePrice) : ""} readOnly={isReadonly} required={!isReadonly} min="0" step="0.01" /></div>
           </div>
           <div className="flex gap-2">
             {!isReadonly && (

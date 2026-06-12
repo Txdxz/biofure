@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { getFinanceRecords, createFinanceRecord, deleteFinanceRecord, updateOrderInvoice, getOrders } from "@/lib/actions";
 import Link from "next/link";
 import InvoiceButton from "@/app/sales/invoice-button";
+import Pagination from "@/components/ui/pagination";
 
 const incomeCategories = ["销售收入", "服务费", "其他收入"];
 const expenseCategories = ["采购成本", "房租", "工资", "物流", "差旅", "办公用品", "外包服务", "税费", "其他"];
@@ -19,6 +20,7 @@ const orderStatusMap: Record<string, string> = { pending: "待确认", confirmed
 export default function FinancePage() {
   const [tab, setTab] = useState("records");
   const [records, setRecords] = useState<any[]>([]);
+  const [total, setTotal] = useState(0);
   const [totalIncome, setTotalIncome] = useState(0);
   const [totalExpense, setTotalExpense] = useState(0);
   const [collectedIncome, setCollectedIncome] = useState(0);
@@ -31,6 +33,8 @@ export default function FinancePage() {
   const [catFilter, setCatFilter] = useState("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  // 分页
+  const [page, setPage] = useState(1);
   // 发票筛选
   const [invCustomer, setInvCustomer] = useState("");
   const [invStatus, setInvStatus] = useState("all");
@@ -46,11 +50,12 @@ export default function FinancePage() {
 
   const selCls = "h-8 rounded-lg border border-input bg-transparent px-2.5 text-sm";
 
-  useEffect(() => { loadData(); loadOrders(); }, [month, year, orderFilter, typeFilter, catFilter, dateFrom, dateTo]);
+  useEffect(() => { loadData(); loadOrders(); }, [month, year, orderFilter, typeFilter, catFilter, dateFrom, dateTo, page]);
 
   async function loadData() {
-    const data = await getFinanceRecords(month, year, orderFilter === "all" ? undefined : orderFilter, typeFilter === "all" ? undefined : typeFilter, catFilter === "all" ? undefined : catFilter, dateFrom || undefined, dateTo || undefined);
+    const data = await getFinanceRecords(month, year, orderFilter === "all" ? undefined : orderFilter, typeFilter === "all" ? undefined : typeFilter, catFilter === "all" ? undefined : catFilter, dateFrom || undefined, dateTo || undefined, page, 20);
     setRecords(data.records);
+    setTotal(data.total);
     setTotalIncome(data.totalIncome);
     setTotalExpense(data.totalExpense);
     setCollectedIncome(data.collectedIncome);
@@ -170,6 +175,7 @@ export default function FinancePage() {
               {records.length === 0 && <TableRow><TableCell colSpan={7} className="text-center text-gray-400">暂无记录</TableCell></TableRow>}
             </TableBody>
           </Table>
+          <Pagination total={total} page={page} onPageChange={setPage} />
         </TabsContent>
 
         <TabsContent value="invoice">

@@ -5,16 +5,18 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
 import InvoiceButton from "./invoice-button";
+import ExportButton from "./export-button";
 import Pagination from "@/components/ui/pagination";
 
 export const dynamic = 'force-dynamic';
 
 const statusMap: Record<string, string> = { pending: "待确认", confirmed: "已确认", shipped: "已发货", completed: "已完成", cancelled: "已取消" };
 
-export default async function SalesPage({ searchParams }: { searchParams: { search?: string; page?: string } }) {
+export default async function SalesPage({ searchParams }: { searchParams: { search?: string; product?: string; page?: string } }) {
   const search = searchParams.search || "";
+  const productSearch = searchParams.product || "";
   const page = Number(searchParams.page) || 1;
-  const { items: orders, total } = await getOrders(search, page, 20);
+  const { items: orders, total } = await getOrders(search, productSearch, page, 20);
 
   return (
     <div className="space-y-6">
@@ -22,11 +24,13 @@ export default async function SalesPage({ searchParams }: { searchParams: { sear
       <div className="flex gap-4">
         <Link href="/sales/orders/new" className="inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent bg-primary text-primary-foreground text-sm font-medium h-8 px-3 hover:bg-primary/80">新建订单</Link>
         <Link href="/sales/outbound" className="inline-flex shrink-0 items-center justify-center rounded-lg border border-border bg-background text-sm font-medium h-8 px-3 hover:bg-muted">出库管理</Link>
+        <ExportButton />
       </div>
-      <form className="flex gap-2 items-end" method="GET">
+      <form className="flex gap-2 items-end flex-wrap" method="GET">
         <div><Input name="search" placeholder="搜索客户名..." defaultValue={search} className="max-w-xs" /></div>
+        <div><Input name="product" placeholder="搜索产品名..." defaultValue={productSearch} className="max-w-xs" /></div>
         <button type="submit" className="px-3 py-1.5 border rounded-md text-sm hover:bg-gray-50 h-8">搜索</button>
-        {search && <a href="/sales" className="text-xs text-gray-400 hover:underline self-center">清除</a>}
+        {(search || productSearch) && <a href="/sales" className="text-xs text-gray-400 hover:underline self-center">清除</a>}
       </form>
 
       <Card>
@@ -60,7 +64,7 @@ export default async function SalesPage({ searchParams }: { searchParams: { sear
               {orders.length === 0 && <TableRow><TableCell colSpan={12} className="text-center text-gray-400">暂无订单</TableCell></TableRow>}
             </TableBody>
           </Table>
-          <Pagination total={total} page={page} basePath="/sales" />
+          <Pagination total={total} page={page} basePath="/sales" queryParams={{ search, product: productSearch }} />
         </CardContent>
       </Card>
     </div>

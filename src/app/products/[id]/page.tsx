@@ -71,44 +71,24 @@ export default async function ProductDetailPage({ params }: { params: { id: stri
         </TableBody>
       </Table>
 
-      <div className="grid grid-cols-2 gap-6 mt-6">
-        <Card>
-          <CardContent className="pt-6">
-            <h3 className="font-semibold mb-2">采购价记录</h3>
-            <Table>
-              <TableHeader><TableRow><TableHead>供应商</TableHead><TableHead>单价</TableHead><TableHead>日期</TableHead></TableRow></TableHeader>
-              <TableBody>
-                {product.purchasePrices.map((pp: any) => (
-                  <TableRow key={pp.id}>
-                    <TableCell>{pp.supplier.shortName || pp.supplier.fullName}</TableCell>
-                    <TableCell>¥{pp.price.toFixed(2)}</TableCell>
-                    <TableCell className="text-sm text-gray-500">{new Date(pp.validFrom).toLocaleDateString("zh-CN")}</TableCell>
-                  </TableRow>
-                ))}
-                {product.purchasePrices.length === 0 && <TableRow><TableCell colSpan={3} className="text-center text-gray-400">暂无</TableCell></TableRow>}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <h3 className="font-semibold mb-2">出货价记录</h3>
-            <Table>
-              <TableHeader><TableRow><TableHead>客户</TableHead><TableHead>单价</TableHead><TableHead>日期</TableHead></TableRow></TableHeader>
-              <TableBody>
-                {product.sellPrices.map((sp: any) => (
-                  <TableRow key={sp.id}>
-                    <TableCell>{sp.customer?.fullName || "标准价"}</TableCell>
-                    <TableCell>¥{sp.price.toFixed(2)}</TableCell>
-                    <TableCell className="text-sm text-gray-500">{new Date(sp.validFrom).toLocaleDateString("zh-CN")}</TableCell>
-                  </TableRow>
-                ))}
-                {product.sellPrices.length === 0 && <TableRow><TableCell colSpan={3} className="text-center text-gray-400">暂无</TableCell></TableRow>}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      </div>
+      <Card className="mt-6">
+        <CardContent className="pt-6">
+          <h3 className="font-semibold mb-2">采购价记录</h3>
+          <Table>
+            <TableHeader><TableRow><TableHead>供应商</TableHead><TableHead>单价</TableHead><TableHead>日期</TableHead></TableRow></TableHeader>
+            <TableBody>
+              {product.purchasePrices.map((pp: any) => (
+                <TableRow key={pp.id}>
+                  <TableCell>{pp.supplier.shortName || pp.supplier.fullName}</TableCell>
+                  <TableCell>¥{pp.price.toFixed(2)}</TableCell>
+                  <TableCell className="text-sm text-gray-500">{new Date(pp.validFrom).toLocaleDateString("zh-CN")}</TableCell>
+                </TableRow>
+              ))}
+              {product.purchasePrices.length === 0 && <TableRow><TableCell colSpan={3} className="text-center text-gray-400">暂无</TableCell></TableRow>}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
     </div>
   );
 }

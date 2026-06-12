@@ -137,9 +137,10 @@ export async function getSellPriceForCustomer(productId: string, customerId: str
 }
 
 // ============ 订单 ============
-export async function getOrders(search?: string, page: number = 1, pageSize: number = 20) {
+export async function getOrders(search?: string, productSearch?: string, page: number = 1, pageSize: number = 20) {
   const where: any = {};
   if (search) where.customer = { fullName: { contains: search } };
+  if (productSearch) where.items = { some: { product: { name: { contains: productSearch } } } };
   const total = await prisma.order.count({ where });
   const items = await prisma.order.findMany({ where, include: { customer: true, items: { include: { product: true } } }, orderBy: { createdAt: "desc" }, skip: (page - 1) * pageSize, take: pageSize });
   return { items, total, page, pageSize };
@@ -197,6 +198,15 @@ export async function deleteOrder(id: string) { await prisma.order.delete({ wher
 // ============ 出库 ============
 export async function outboundOrder(orderId: string, trackingNumber: string, batchAssignments: { orderItemId: string; batchId: string; quantity: number }[]) {
   for (const a of batchAssignments) {
+    const orderItem = await prisma.orderItem.findUnique({ where: { id: a.orderItemId } });
+    if (!orderItem) throw new Error("订单明细不存在");
+    
+    const remaining = orderItem.quantity - orderItem.shippedQuantity;
+    if (a.quantity > remaining) throw new Error(`出库数量超过订单剩余数量，剩余: ${remaining}`);
+    
+    const batch = await prisma.batch.findUnique({ where: { id: a.batchId } });
+    if (!batch || batch.quantity < a.quantity) throw new Error(`批次库存不足，当前库存: ${batch?.quantity || 0}`);
+    
     await prisma.orderItem.update({ where: { id: a.orderItemId }, data: { batchId: a.batchId, shippedQuantity: { increment: a.quantity } } });
     await prisma.batch.update({ where: { id: a.batchId }, data: { quantity: { decrement: a.quantity } } });
   }
@@ -221,7 +231,7 @@ export async function updateAfterSale(id: string, data: any) {
 export async function deleteAfterSale(id: string) { await prisma.afterSale.delete({ where: { id } }); revalidatePath("/sales"); }
 
 // ============ 财务 ============
-export async function getFinanceRecords(month?: number, year?: number, orderFilter?: string, typeFilter?: string, categoryFilter?: string, startDate?: string, endDate?: string) {
+export async function getFinanceRecords(month?: number, year?: number, orderFilter?: string, typeFilter?: string, categoryFilter?: string, startDate?: string, endDate?: string, page: number = 1, pageSize: number = 20) {
   const now = new Date();
   const m = month !== undefined ? month : now.getMonth() + 1;
   const y = year || now.getFullYear();
@@ -235,7 +245,8 @@ export async function getFinanceRecords(month?: number, year?: number, orderFilt
   if (typeFilter && typeFilter !== "all") where.type = typeFilter;
   if (categoryFilter && categoryFilter !== "all") where.category = categoryFilter;
 
-  let records = await prisma.financeRecord.findMany({ where, orderBy: { date: "desc" } });
+  const total = await prisma.financeRecord.count({ where });
+  let records = await prisma.financeRecord.findMany({ where, orderBy: { date: "desc" }, skip: (page - 1) * pageSize, take: pageSize });
 
   const orderIdsArr = records.filter(r => r.orderId).map(r => r.orderId!);
   const orderIds: string[] = [];
@@ -253,14 +264,30 @@ export async function getFinanceRecords(month?: number, year?: number, orderFilt
   const recordsWithOrderStatus = records.map(r => ({ ...r, orderStatus: r.orderId ? orderStatuses[r.orderId] || null : null, paymentStatus: r.orderId ? paymentStatuses[r.orderId] || null : null }));
 
   let totalIncome = 0, totalExpense = 0, collectedIncome = 0;
-  for (const r of records) {
+  const allRecords = await prisma.financeRecord.findMany({ where });
+  for (const r of allRecords) {
     if (r.type === "income") {
       totalIncome += r.amount;
-      const ps = paymentStatuses[r.orderId || ""];
-      if (!r.orderId || ps === "已回款" || ps === "已付首款") collectedIncome += r.amount;
     } else totalExpense += r.amount;
   }
-  return { records: recordsWithOrderStatus, totalIncome, totalExpense, collectedIncome, month: m, year: y };
+  const allOrderIds: string[] = [];
+  for (const r of allRecords) {
+    if (r.orderId && !allOrderIds.includes(r.orderId)) {
+      allOrderIds.push(r.orderId);
+    }
+  }
+  if (allOrderIds.length > 0) {
+    const allOrders = await prisma.order.findMany({ where: { id: { in: allOrderIds } }, select: { id: true, paymentStatus: true } });
+    const allPaymentStatuses: Record<string, string> = {};
+    allOrders.forEach(o => { allPaymentStatuses[o.id] = o.paymentStatus || "未回款"; });
+    for (const r of allRecords) {
+      if (r.type === "income") {
+        const ps = allPaymentStatuses[r.orderId || ""];
+        if (!r.orderId || ps === "已回款" || ps === "已付首款") collectedIncome += r.amount;
+      }
+    }
+  }
+  return { records: recordsWithOrderStatus, total, totalIncome, totalExpense, collectedIncome, month: m, year: y };
 }
 
 export async function createFinanceRecord(data: any) {
