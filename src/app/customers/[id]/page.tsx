@@ -1,11 +1,10 @@
-import { getCustomer } from "@/lib/actions";
+import { getCustomer, getProductsSimple } from "@/lib/actions";
 import { notFound } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import CustomerForm from "@/components/customer-form";
+import { FilterForm } from "./filter-form";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 
@@ -13,13 +12,15 @@ export const dynamic = 'force-dynamic';
 
 const orderStatusMap: Record<string, string> = { pending: "待确认", confirmed: "已确认", shipped: "已发货", completed: "已完成", cancelled: "已取消" };
 
-export default async function CustomerDetailPage({ params, searchParams }: { params: { id: string }; searchParams: { filter?: string; dateFrom?: string; dateTo?: string } }) {
+export default async function CustomerDetailPage({ params, searchParams }: { params: { id: string }; searchParams: { filter?: string; dateFrom?: string; dateTo?: string; productId?: string } }) {
   const customer = await getCustomer(params.id);
+  const products = await getProductsSimple();
   if (!customer) notFound();
 
   const filter = searchParams.filter || "all";
   const dateFrom = searchParams.dateFrom || "";
   const dateTo = searchParams.dateTo || "";
+  const productId = searchParams.productId || "";
 
   const dateFilter: any = {};
   if (dateFrom) dateFilter.gte = new Date(dateFrom);
@@ -30,6 +31,10 @@ export default async function CustomerDetailPage({ params, searchParams }: { par
     include: { items: { include: { product: { include: { purchasePrices: true } }, batch: true } } },
     orderBy: { date: "desc" },
   });
+
+  if (productId) {
+    orders = orders.filter(o => o.items.some(i => i.productId === productId));
+  }
 
   let totalSales = 0, totalProfit = 0;
   for (const o of orders) {
@@ -77,24 +82,7 @@ export default async function CustomerDetailPage({ params, searchParams }: { par
         </CardContent>
       </Card>
 
-      <form className="flex gap-2 items-end flex-wrap" method="GET">
-        <div><span className="text-xs text-gray-500 block mb-1">开始日期</span><Input name="dateFrom" type="date" className="w-36" defaultValue={dateFrom} /></div>
-        <div><span className="text-xs text-gray-500 block mb-1">结束日期</span><Input name="dateTo" type="date" className="w-36" defaultValue={dateTo} /></div>
-        <Select name="filter" defaultValue={filter}>
-          <SelectTrigger className="w-36"><SelectValue placeholder="筛选" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">全部</SelectItem>
-            <SelectItem value="订单">订单</SelectItem>
-            <SelectItem value="待确认">待确认</SelectItem>
-            <SelectItem value="已确认">已确认</SelectItem>
-            <SelectItem value="已发货">已发货</SelectItem>
-            <SelectItem value="已完成">已完成</SelectItem>
-            <SelectItem value="已取消">已取消</SelectItem>
-          </SelectContent>
-        </Select>
-        <button type="submit" className="px-3 py-1.5 border rounded-md text-sm hover:bg-gray-50 h-8">筛选</button>
-        {(dateFrom || dateTo || filter !== "all") && <a href={`/customers/${params.id}`} className="text-xs text-gray-400 hover:underline">清除筛选</a>}
-      </form>
+      <FilterForm products={products} />
 
       {rows.length === 0 ? <p className="text-gray-400 text-center py-8">暂无订单</p> : (
         <Table>

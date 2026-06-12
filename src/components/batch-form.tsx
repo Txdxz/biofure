@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { SearchSelect } from "@/components/ui/search-select";
 import { createBatch, updateBatch, deleteBatch, getCustomersSimple } from "@/lib/actions";
 
 interface Props {
@@ -86,12 +87,7 @@ export default function BatchForm({ productId, defaultValues, onSuccess }: Props
             <div><Label>批号 *</Label><Input name="batchNumber" defaultValue={defaultValues?.batchNumber} required readOnly={isReadonly} /></div>
             <div>
               <Label>供应商</Label>
-              <select className="h-8 rounded-lg border border-input bg-transparent px-2.5 text-sm w-full" value={supplierId} onChange={(e) => setSupplierId(e.target.value)} disabled={isReadonly}>
-                <option value="">选择供应商</option>
-                {customers.map((c) => (
-                  <option key={c.id} value={c.id}>{c.fullName}</option>
-                ))}
-              </select>
+              <SearchSelect options={customers} value={supplierId} onChange={setSupplierId} placeholder="搜索或选择供应商..." displayKey="fullName" disabled={isReadonly} />
             </div>
             <div>
               <Label>状态</Label>
